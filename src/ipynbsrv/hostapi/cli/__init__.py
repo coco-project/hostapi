@@ -1,5 +1,5 @@
 from flask import Flask
-from ipynbsrv.hostapi.controllers.containers import blueprint as containers
+from ipynbsrv.hostapi.routes.containers import blueprint as containers
 import sys
 
 '''
