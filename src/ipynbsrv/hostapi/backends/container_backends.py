@@ -3,7 +3,7 @@ from ipynbsrv.contract.backends import (CloneableContainerBackend, ContainerBack
 from docker import Client
 
 
-class DockerContainerBackend(CloneableContainerBackend, SnapshotableContainerBackend):
+class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     '''
     '''
 
@@ -42,7 +42,7 @@ class DockerContainerBackend(CloneableContainerBackend, SnapshotableContainerBac
             raise ContainerNotFoundError
 
         container = self.get_container(container)
-        return container['Status'].startswith(DockerContainerBackend.RUNNING_IDENTIFIER)
+        return container['Status'].startswith(Docker.RUNNING_IDENTIFIER)
 
     '''
     :inherit

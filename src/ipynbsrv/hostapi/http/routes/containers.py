@@ -1,18 +1,26 @@
+from base64 import b64decode, b64encode
 from flask import Blueprint, request
-from ipynbsrv.hostapi.backends import DockerContainerBackend
+from ipynbsrv.common.services.security import RSA
+from ipynbsrv.hostapi.backends.container_backends import Docker
 from ipynbsrv.hostapi.http.routes.common import error_response, success_response
+import rsa
 
 '''
 '''
 blueprint = Blueprint('name', __name__, url_prefix='/containers')
-container_backend = DockerContainerBackend(version="1.18")
+container_backend = Docker(version="1.18")
 
 
 @blueprint.route('/<identifier>/clone', methods=['POST'])
 def clone_container(identifier):
     '''
     '''
-    return error_response(501, "Not implemented")
+    (pub_key, priv_key) = rsa.newkeys(2048)
+    cipher_text = RSA().encrypt("Clone not implemented", pub_key)
+    encoded_cipher = b64encode(cipher_text)
+    decoded_cipher = b64decode(encoded_cipher)
+    plain_text = RSA().decrypt(decoded_cipher, priv_key)
+    return success_response(plain_text)
 
 
 @blueprint.route('/<identifier>/exec', methods=['POST'])
