@@ -49,7 +49,7 @@ def get_container_logs(identifier):
     container = {'identifier': identifier}
     if container_backend.container_exists(container):
         try:
-            return success_response(container_backend.get_container_logs({'identifier': identifier}))
+            return success_response(container_backend.get_container_logs(container))
         except:
             return error_response(500, "Unexpected container backend error")
     else:
@@ -66,7 +66,7 @@ def get_public_key(identifier):
         if container_backend.container_is_running(container):
             try:
                 return success_response(container_backend.exec_in_container(
-                    {'identifier': identifier},
+                    container,
                     # TODO: magic string; depends on EncryptionService...
                     "cat /etc/ssh/ssh_host_rsa_key.pub"
                 ))
@@ -122,6 +122,7 @@ def stop_container(identifier):
     '''
     Stops the container if it is running, does nothing otherwise.
     '''
+    container = {'identifier': identifier}
     if container_backend.container_exists(container):
         if container_backend.container_is_running(container):
             try:
@@ -129,7 +130,7 @@ def stop_container(identifier):
             except:
                 return error_response(500, "Unexpected container backend error")
         else:
-            return success_response(200, "Container already stopped")
+            return success_response("Container already stopped")
     else:
         return error_response(404, "Container not found")
 
@@ -139,6 +140,7 @@ def get_container(identifier):
     '''
     Returns information about the container.
     '''
+    container = {'identifier': identifier}
     if container_backend.container_exists(container):
         try:
             return success_response(container_backend.get_container(container))
@@ -155,10 +157,11 @@ def delete_container(identifier):
 
     Note: A running container needs to be stopped first.
     '''
+    container = {'identifier': identifier}
     if container_backend.container_exists(container):
         if not container_backend.container_is_running(container):
             try:
-                return success_response(container_backend.stop_container(container, force=True))
+                return success_response(container_backend.delete_container(container, force=True))
             except:
                 return error_response(500, "Unexpected container backend error")
         else:
@@ -180,8 +183,11 @@ def create_container():
         field = json.get(required_name)
         if not field:
             return error_response(400, "Missing required field %s" % required_name)
-        else if not isinstance(field, required_type):
-            return error_response(400, "Bad input type for field %s. %s expected." % (required_name, required_type))
+        elif not isinstance(field, required_type):
+            return error_response(
+                400,
+                "Bad input type for field %s. %s expected, %s given." % (required_name, required_type, type(field))
+            )
         else:
             spec[required_name] = field
 

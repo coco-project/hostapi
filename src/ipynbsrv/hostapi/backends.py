@@ -3,7 +3,7 @@ from ipynbsrv.contract.backends import (CloneableContainerBackend, ContainerBack
 from docker import Client
 
 
-class DockerContainerBackend(SnapshotableContainerBackend):
+class DockerContainerBackend(CloneableContainerBackend, SnapshotableContainerBackend):
     '''
     '''
 
@@ -24,9 +24,15 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     '''
     :inherit
     '''
+    def clone_container(self, container, clone, **kwargs):
+        pass
+
+    '''
+    :inherit
+    '''
     def container_exists(self, container, **kwargs):
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if ct['Id'] == container.identifier), False)
+        return next((ct for ct in containers if ct['Id'] == container.get('identifier')), False)
 
     '''
     :inherit
@@ -48,16 +54,15 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     :inherit
     '''
     def create_container(self, container, **kwargs):
-        if self.container_exists(container.name):
-            raise Exception("A container with that name already exists")
         try:
             return self.client.create_container(
-                name=container.name,
-                image=container.image.get_full_identifier(),
-                command=container.command,
-                ports=container.ports,
-                volumes=container.volumes,
-                environment=container.env,
+                name=container.get('name'),
+                image=container.get('image'),
+                command=container.get('command'),
+                ports=container.get('ports'),
+                volumes=container.get('volumes'),
+                environment=container.get('env'),
+                # TODO: other optional params
                 detach=True
             )
         except Exception as ex:
@@ -81,7 +86,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         tag = parts[1]
         try:
             return self.client.commit(
-                container=container.identifier,
+                container=container.get('identifier'),
                 repository=repository,
                 tag=tag
             )
@@ -97,11 +102,11 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         if not self.container_exists(container):
             raise ContainerNotFoundError
         force = kwargs.get('force')
-        if not force and self.container_is_running(container):
+        if force is not True and self.container_is_running(container):
             raise IllegalContainerStateError
 
         try:
-            return self.client.remove_container(container=container.identifier, force=(force is True))
+            return self.client.remove_container(container=container.get('identifier'), force=(force is True))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -125,7 +130,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
             raise IllegalContainerStateError
 
         try:
-            exec_id = self.client.exec_create(container=container.identifier, cmd=cmd)
+            exec_id = self.client.exec_create(container=container.get('identifier'), cmd=cmd)
             return self.client.exec_start(exec_id=exec_id, stream=False)
         except Exception as ex:
             raise ContainerBackendError(ex)
@@ -137,7 +142,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         if not self.container_exists(container):
             raise ContainerNotFoundError
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if ct['Id'] == container.identifier), None)
+        return next((ct for ct in containers if ct['Id'] == container.get('identifier')), None)
 
     '''
     :inherit
@@ -150,7 +155,11 @@ class DockerContainerBackend(SnapshotableContainerBackend):
 
         timestamps = kwargs.get('timestamps')
         try:
-            logs = self.client.logs(container=container.identifier, stream=False, timestamps=(timestamps is True))
+            logs = self.client.logs(
+                container=container.get('identifier'),
+                stream=False,
+                timestamps=(timestamps is True)
+            )
             return filter(lambda x: len(x) > 0,  logs.split('\n'))
         except Exception as ex:
             raise ContainerBackendError(ex)
@@ -169,9 +178,9 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     '''
     def get_required_creation_fields(self):
         return [
-            ('name', str),
-            ('image', dict),
-            ('command', str)
+            ('name', basestring),
+            ('image', basestring),
+            ('command', basestring)
         ]
 
     '''
@@ -186,9 +195,9 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         force = kwargs.get('force')
         try:
             if force:
-                return self.client.restart(container=container.identifier, timeout=0)
+                return self.client.restart(container=container.get('identifier'), timeout=0)
             else:
-                return self.client.restart(container=container.identifier)
+                return self.client.restart(container=container.get('identifier'))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -218,9 +227,9 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         force = kwargs.get('force')
         try:
             if force:
-                return self.client.stop(container=container.identifier, timeout=0)
+                return self.client.stop(container=container.get('identifier'), timeout=0)
             else:
-                return self.client.stop(container=container.identifier)
+                return self.client.stop(container=container.get('identifier'))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
