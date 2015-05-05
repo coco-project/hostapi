@@ -1,5 +1,5 @@
-from ipynbsrv.contract.backends import (CloneableContainerBackend,
-    ContainerBackendError, SnapshotableContainerBackend)
+from ipynbsrv.contract.backends import (CloneableContainerBackend, ContainerBackendError,
+                                        SnapshotableContainerBackend)
 from docker import Client
 
 
@@ -21,137 +21,226 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     def __init__(self, version, base_url='unix://var/run/docker.sock'):
         self.client = Client(base_url=base_url, version=version)
 
-    def container_exists(self, container):
+    '''
+    :inherit
+    '''
+    def container_exists(self, container, **kwargs):
         containers = self.get_containers(only_running=False)
-        for returned in containers:
-            if container.id == returned['Id']:
-                return True
-        return False
+        return next((ct for ct in containers if ct['Id'] == container.identifier), False)
 
-    def container_is_running(self, container):
+    '''
+    :inherit
+    '''
+    def container_is_running(self, container, **kwargs):
         if not self.container_exists(container):
-            raise ValueError("Container does not exist")
+            raise ContainerNotFoundError
 
         container = self.get_container(container)
         return container['Status'].startswith(DockerContainerBackend.RUNNING_IDENTIFIER)
 
-    def container_snapshot_exists(self, container, name):
+    '''
+    :inherit
+    '''
+    def container_snapshot_exists(self, container, name, **kwargs):
         raise NotImplemented
 
-    def create_container(self, container):
-        # TODO: check if such a container already exists
-        return self.client.create_container(
-            name=container.name,
-            image=container.image.get_full_identifier(),
-            command=container.command,
-            ports=container.ports,
-            volumes=container.volumes,
-            environment=container.env,
-            detach=True
-        )
+    '''
+    :inherit
+    '''
+    def create_container(self, container, **kwargs):
+        if self.container_exists(container.name):
+            raise Exception("A container with that name already exists")
+        try:
+            return self.client.create_container(
+                name=container.name,
+                image=container.image.get_full_identifier(),
+                command=container.command,
+                ports=container.ports,
+                volumes=container.volumes,
+                environment=container.env,
+                detach=True
+            )
+        except Exception as ex:
+            raise ContainerBackendError(ex)
 
-    def create_container_snapshot(self, container, name):
+    '''
+    :inherit
+
+    :param name: The snapshots name in required 'repository:tag' format.
+    '''
+    def create_container_snapshot(self, container, name, **kwargs):
         if not self.container_exists(container):
-            raise ValueError("Container does not exist")
-        if not name or not isinstance(name, str):
-            raise ValueError("No snapshot name defined or not a str")
-        # TODO: check if snapshot with that name and tag already exists
+            raise ContainerNotFoundError
+        if self.container_snapshot_exists(container, name):
+            raise Exception("A snapshot with that name already exists for the given container")
+
         parts = name.split(':')
         if len(parts) != 2:
             raise ValueError("Illegal name. Must be in the form repository:tag")
-
         repository = parts[0]
         tag = parts[1]
         try:
             return self.client.commit(
-                container=container.id,
+                container=container.identifier,
                 repository=repository,
                 tag=tag
             )
         except Exception as ex:
             raise ContainerBackendError(ex)
 
-    def delete_container(self, container, force=False):
+    '''
+    :inherit
+
+    :param force: If true, the container doesn't need to be stopped.
+    '''
+    def delete_container(self, container, **kwargs):
         if not self.container_exists(container):
-            raise ValueError("Container does not exist")
-        if self.container_is_running(container) and not force:
-            raise ValueError("Container running but delete not forced")
+            raise ContainerNotFoundError
+        force = kwargs.get('force')
+        if not force and self.container_is_running(container):
+            raise IllegalContainerStateError
 
         try:
-            return self.client.remove_container(container=container.id, force=force)
+            return self.client.remove_container(container=container.identifier, force=(force is True))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
-    def delete_container_snapshot(self, container, snapshot):
+    '''
+    :inherit
+    '''
+    def delete_container_snapshot(self, container, snapshot, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
         if self.container_snapshot_exists(container, snapshot):
-            raise ValueError("Container snapshot does not exist")
+            raise Exception("Container snapshot does not exist")
         raise NotImplemented
 
-    def exec_in_container(self, container, cmd):
+    '''
+    :inherit
+    '''
+    def exec_in_container(self, container, cmd, **kwargs):
         if not self.container_exists(container):
-            raise ValueError("Container does not exist")
+            raise ContainerNotFoundError
         if not self.container_is_running(container):
-            raise ValueError("Container not running")
+            raise IllegalContainerStateError
 
         try:
-            exec_id = self.client.exec_create(container=container.id, cmd=cmd)
+            exec_id = self.client.exec_create(container=container.identifier, cmd=cmd)
             return self.client.exec_start(exec_id=exec_id, stream=False)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
+    '''
+    :inherit
+    '''
     def get_container(self, container):
         if not self.container_exists(container):
-            raise ValueError("Container does not exist")
-
+            raise ContainerNotFoundError
         containers = self.get_containers(only_running=False)
-        for returned in containers:
-            if container.id == returned['Id']:
-                return returned
+        return next((ct for ct in containers if ct['Id'] == container.identifier), None)
 
-    def get_container_logs(self, container):
+    '''
+    :inherit
+
+    :param timestamps: If true, the log messages timestamps are included.
+    '''
+    def get_container_logs(self, container, **kwargs):
         if not self.container_exists(container):
-            raise ValueError("Container does not exist")
+            raise ContainerNotFoundError
 
+        timestamps = kwargs.get('timestamps')
         try:
-            logs = self.client.logs(container=container.id, stream=False, timestamps=True)
+            logs = self.client.logs(container=container.identifier, stream=False, timestamps=(timestamps is True))
             return filter(lambda x: len(x) > 0,  logs.split('\n'))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
-    def get_containers(self, only_running=False):
+    '''
+    :inherit
+    '''
+    def get_containers(self, only_running=False, **kwargs):
         try:
-            return self.client.containers(all=not only_running)
+            return self.client.containers(all=(not only_running))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
-    def restart_container(self, container, force=False):
-        if not self.container_exists(container):
-            raise ValueError("Container does not exist")
+    '''
+    :inherit
+    '''
+    def get_required_creation_fields(self):
+        return [
+            ('name', str),
+            ('image', dict),
+            ('command', str)
+        ]
 
+    '''
+    :inherit
+
+    :param force: If true, kill the container if it doesn't want to stop.
+    '''
+    def restart_container(self, container, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+
+        force = kwargs.get('force')
         try:
             if force:
-                return self.client.restart(container=container.id, timeout=0)
+                return self.client.restart(container=container.identifier, timeout=0)
             else:
-                return self.client.restart(container=container.id)
+                return self.client.restart(container=container.identifier)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
-    def restore_container_snapshot(self, container, snapshot):
+    '''
+    :inherit
+    '''
+    def restore_container_snapshot(self, container, snapshot, **kwargs):
         raise NotImplementedError
 
-    def start_container(self, container):
+    '''
+    :inherit
+    '''
+    def start_container(self, container, **kwargs):
         pass
 
-    def stop_container(self, container, force=False):
-        if not self.container_exists(container):
-            raise ValueError("Container does not exist")
-        if not self.container_is_running(container):
-            raise ValueError("Container not running")
+    '''
+    :inherit
 
+    :param force: If true, kill the container if it doesn't want to stop.
+    '''
+    def stop_container(self, container, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+        if not self.container_is_running(container):
+            raise IllegalContainerStateError
+
+        force = kwargs.get('force')
         try:
             if force:
-                return self.client.stop(container=container.id, timeout=0)
+                return self.client.stop(container=container.identifier, timeout=0)
             else:
-                return self.client.stop(container=container.id)
+                return self.client.stop(container=container.identifier)
         except Exception as ex:
             raise ContainerBackendError(ex)
+
+
+class ContainerNotFoundError(ContainerBackendError):
+    '''
+    Error meant to be raised when an operation can not be performed
+    because the container on which the method should act does not exist.
+    '''
+
+    def __init__(self, message=''):
+        super(ContainerNotFoundError, self).__init__(message)
+
+
+class IllegalContainerStateError(ContainerBackendError):
+    '''
+    Error meant to be raised when an operation can not be performed
+    because the container on which the method should act is in an
+    illegal state (e.g. exec method and the container is stopped).
+    '''
+
+    def __init__(self, message=''):
+        super(IllegalContainerStateError, self).__init__(message)
