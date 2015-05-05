@@ -10,7 +10,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     '''
     String to identify either a container is running or stopped.
     '''
-    STOPPED_IDENTIFIER = 'Exited'
+    RUNNING_IDENTIFIER = 'Up'
 
     '''
     Initializes a new Docker container backend.
@@ -24,19 +24,31 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     def container_exists(self, container):
         containers = self.get_containers(only_running=False)
         for returned in containers:
-            if container['id'] == returned['Id']:
+            if container.id == returned['Id']:
                 return True
         return False
 
     def container_is_running(self, container):
+        if not self.container_exists(container):
+            raise ValueError("Container does not exist")
+
         container = self.get_container(container)
-        return container['Status'].startswith(DockerContainerBackend.STOPPED_IDENTIFIER)
+        return container['Status'].startswith(DockerContainerBackend.RUNNING_IDENTIFIER)
 
     def container_snapshot_exists(self, container, name):
         raise NotImplemented
 
     def create_container(self, container):
-        pass
+        # TODO: check if such a container already exists
+        return self.client.create_container(
+            name=container.name,
+            image=container.image.get_full_identifier(),
+            command=container.command,
+            ports=container.ports,
+            volumes=container.volumes,
+            environment=container.env,
+            detach=True
+        )
 
     def create_container_snapshot(self, container, name):
         if not self.container_exists(container):
@@ -52,7 +64,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         tag = parts[1]
         try:
             return self.client.commit(
-                container=container['id'],
+                container=container.id,
                 repository=repository,
                 tag=tag
             )
@@ -66,7 +78,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
             raise ValueError("Container running but delete not forced")
 
         try:
-            return self.client.remove_container(container=container['id'], force=force)
+            return self.client.remove_container(container=container.id, force=force)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -76,11 +88,13 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         raise NotImplemented
 
     def exec_in_container(self, container, cmd):
-        if self.container_exists(container):
+        if not self.container_exists(container):
             raise ValueError("Container does not exist")
+        if not self.container_is_running(container):
+            raise ValueError("Container not running")
 
         try:
-            exec_id = self.client.exec_create(container=container['id'], cmd=cmd)
+            exec_id = self.client.exec_create(container=container.id, cmd=cmd)
             return self.client.exec_start(exec_id=exec_id, stream=False)
         except Exception as ex:
             raise ContainerBackendError(ex)
@@ -91,7 +105,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
 
         containers = self.get_containers(only_running=False)
         for returned in containers:
-            if container['id'] == returned['Id']:
+            if container.id == returned['Id']:
                 return returned
 
     def get_container_logs(self, container):
@@ -99,7 +113,7 @@ class DockerContainerBackend(SnapshotableContainerBackend):
             raise ValueError("Container does not exist")
 
         try:
-            logs = self.client.logs(container=container['id'], stream=False, timestamps=True)
+            logs = self.client.logs(container=container.id, stream=False, timestamps=True)
             return filter(lambda x: len(x) > 0,  logs.split('\n'))
         except Exception as ex:
             raise ContainerBackendError(ex)
@@ -107,15 +121,18 @@ class DockerContainerBackend(SnapshotableContainerBackend):
     def get_containers(self, only_running=False):
         try:
             return self.client.containers(all=not only_running)
-        except:
-            pass
+        except Exception as ex:
+            raise ContainerBackendError(ex)
 
     def restart_container(self, container, force=False):
+        if not self.container_exists(container):
+            raise ValueError("Container does not exist")
+
         try:
             if force:
-                return self.client.restart(container=container['id'], timeout=0)
+                return self.client.restart(container=container.id, timeout=0)
             else:
-                return self.client.restart(container=container['id'])
+                return self.client.restart(container=container.id)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -126,10 +143,15 @@ class DockerContainerBackend(SnapshotableContainerBackend):
         pass
 
     def stop_container(self, container, force=False):
+        if not self.container_exists(container):
+            raise ValueError("Container does not exist")
+        if not self.container_is_running(container):
+            raise ValueError("Container not running")
+
         try:
             if force:
-                return self.client.stop(container=container['id'], timeout=0)
+                return self.client.stop(container=container.id, timeout=0)
             else:
-                return self.client.stop(container=container['id'])
+                return self.client.stop(container=container.id)
         except Exception as ex:
             raise ContainerBackendError(ex)
