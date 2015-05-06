@@ -1,5 +1,4 @@
-from ipynbsrv.contract.backends import (CloneableContainerBackend, ContainerBackendError,
-                                        SnapshotableContainerBackend)
+from ipynbsrv.contract.backends import *
 from docker import Client
 
 
@@ -32,7 +31,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     '''
     def container_exists(self, container, **kwargs):
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if ct['Id'] == container.get('identifier')), False)
+        return next((ct for ct in containers if ct['Id'] == container), False)
 
     '''
     :inherit
@@ -77,7 +76,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         if not self.container_exists(container):
             raise ContainerNotFoundError
         if self.container_snapshot_exists(container, name):
-            raise Exception("A snapshot with that name already exists for the given container")
+            raise ContainerBackendError("A snapshot with that name already exists for the given container")
 
         parts = name.split(':')
         if len(parts) != 2:
@@ -86,7 +85,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         tag = parts[1]
         try:
             return self.client.commit(
-                container=container.get('identifier'),
+                container=container,
                 repository=repository,
                 tag=tag
             )
@@ -106,7 +105,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
             raise IllegalContainerStateError
 
         try:
-            return self.client.remove_container(container=container.get('identifier'), force=(force is True))
+            return self.client.remove_container(container=container, force=(force is True))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -117,7 +116,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         if not self.container_exists(container):
             raise ContainerNotFoundError
         if self.container_snapshot_exists(container, snapshot):
-            raise Exception("Container snapshot does not exist")
+            raise ContainerSnapshotNotFoundError
         raise NotImplemented
 
     '''
@@ -130,7 +129,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
             raise IllegalContainerStateError
 
         try:
-            exec_id = self.client.exec_create(container=container.get('identifier'), cmd=cmd)
+            exec_id = self.client.exec_create(container=container, cmd=cmd)
             return self.client.exec_start(exec_id=exec_id, stream=False)
         except Exception as ex:
             raise ContainerBackendError(ex)
@@ -142,7 +141,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         if not self.container_exists(container):
             raise ContainerNotFoundError
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if ct['Id'] == container.get('identifier')), None)
+        return next((ct for ct in containers if ct['Id'] == container), None)
 
     '''
     :inherit
@@ -156,13 +155,25 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         timestamps = kwargs.get('timestamps')
         try:
             logs = self.client.logs(
-                container=container.get('identifier'),
+                container=container,
                 stream=False,
                 timestamps=(timestamps is True)
             )
             return filter(lambda x: len(x) > 0,  logs.split('\n'))
         except Exception as ex:
             raise ContainerBackendError(ex)
+
+    '''
+    :inherit
+    '''
+    def get_container_snapshot(self, container, snapshot, **kwargs):
+        raise NotImplementedError
+
+    '''
+    :inherit
+    '''
+    def get_container_snapshots(self, container, **kwargs):
+        raise NotImplementedError
 
     '''
     :inherit
@@ -185,6 +196,14 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
 
     '''
     :inherit
+    '''
+    def get_required_start_fields(self):
+        return [
+            ('identifier', basestring)
+        ]
+
+    '''
+    :inherit
 
     :param force: If true, kill the container if it doesn't want to stop.
     '''
@@ -195,9 +214,9 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         force = kwargs.get('force')
         try:
             if force:
-                return self.client.restart(container=container.get('identifier'), timeout=0)
+                return self.client.restart(container=container, timeout=0)
             else:
-                return self.client.restart(container=container.get('identifier'))
+                return self.client.restart(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -211,7 +230,15 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     :inherit
     '''
     def start_container(self, container, **kwargs):
-        pass
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+        if self.container_is_running(container):
+            raise IllegalContainerStateError
+
+        try:
+            return self.client.start(container=container.get('identifier'))
+        except Exception as ex:
+            raise ContainerBackendError(ex)
 
     '''
     :inherit
@@ -227,29 +254,8 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         force = kwargs.get('force')
         try:
             if force:
-                return self.client.stop(container=container.get('identifier'), timeout=0)
+                return self.client.stop(container=container, timeout=0)
             else:
-                return self.client.stop(container=container.get('identifier'))
+                return self.client.stop(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
-
-
-class ContainerNotFoundError(ContainerBackendError):
-    '''
-    Error meant to be raised when an operation can not be performed
-    because the container on which the method should act does not exist.
-    '''
-
-    def __init__(self, message=''):
-        super(ContainerNotFoundError, self).__init__(message)
-
-
-class IllegalContainerStateError(ContainerBackendError):
-    '''
-    Error meant to be raised when an operation can not be performed
-    because the container on which the method should act is in an
-    illegal state (e.g. exec method and the container is stopped).
-    '''
-
-    def __init__(self, message=''):
-        super(IllegalContainerStateError, self).__init__(message)
