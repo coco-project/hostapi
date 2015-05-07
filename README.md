@@ -38,5 +38,5 @@ optional arguments:
 | POST        | /containers/`<CT>`/snapshots/`<SH>`/restore | Restores the referenced container snapshot. |
 | GET         | /containers/images | Returns a list of images the container backend can bootstrap containers from. |
 | POST        | /containers/images | Creates a container image as per the specification included in the POST body. |
-| DELETE      | /containers/images/`<IMG>` | Returns information about a single image. |
-| GET         | /containers/images/`<IMG>` | Deletes the referenced image from the backend. |
+| DELETE      | /containers/images/`<IMG>` | Deletes the referenced image from the backend. |
+| GET         | /containers/images/`<IMG>` | Returns information about a single image. |

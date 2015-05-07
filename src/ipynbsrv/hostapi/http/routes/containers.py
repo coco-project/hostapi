@@ -468,7 +468,7 @@ def get_container(container):
 @blueprint.route('/<container>', methods=['DELETE'])
 def delete_container(container):
     '''
-    Deletes the references container from the backend.
+    Deletes the referenced container from the backend.
     '''
     try:
         ret = container_backend.delete_container(container)
