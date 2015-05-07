@@ -15,7 +15,7 @@ def clone_container(container):
 
     TODO: hmm.....
     '''
-    if not isinstance(container_backend, CloneableContainerBackend):
+    if not isinstance(config.container_backend, CloneableContainerBackend):
         return error_response(428, "Container backend does not support the clone operation")
 
     return error_response(501, "Not implemented")
@@ -55,7 +55,7 @@ def get_image(image):
 
     Note: If the backend does not support images, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, ImageBasedContainerBackend):
+    if not isinstance(config.container_backend, ImageBasedContainerBackend):
         return error_response(428, "Container backend is not image based")
 
     try:
@@ -78,7 +78,7 @@ def delete_image(image):
 
     Note: If the backend does not support images, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, ImageBasedContainerBackend):
+    if not isinstance(config.container_backend, ImageBasedContainerBackend):
         return error_response(428, "Container backend is not image based")
 
     try:
@@ -101,7 +101,7 @@ def get_images():
 
     Note: If the backend does not support images, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, ImageBasedContainerBackend):
+    if not isinstance(config.container_backend, ImageBasedContainerBackend):
         return error_response(428, "Container backend is not image based")
 
     try:
@@ -120,7 +120,7 @@ def create_image():
     '''
     Creates a container image as per the specification included in the POST body.
     '''
-    if not isinstance(container_backend, ImageBasedContainerBackend):
+    if not isinstance(config.container_backend, ImageBasedContainerBackend):
         return error_response(428, "Container backend is not image based")
 
     try:
@@ -213,7 +213,7 @@ def resume_container(container):
 
     Note: Backends may have preconditions before this operation can be run.
     '''
-    if not isinstance(container_backend, SuspendableContainerBackend):
+    if not isinstance(config.container_backend, SuspendableContainerBackend):
         raise error_response(428, "Container backend does not support the resume operation")
 
     try:
@@ -238,7 +238,7 @@ def restore_container_snapshots(container, snapshot):
 
     Note: Backends may have preconditions before this operation can be run.
     '''
-    if not isinstance(container_backend, SnapshotableContainerBackend):
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
@@ -265,7 +265,7 @@ def delete_container_snapshots(container, snapshot):
 
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, SnapshotableContainerBackend):
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
@@ -292,7 +292,7 @@ def get_container_snapshot(container, snapshot):
 
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, SnapshotableContainerBackend):
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
@@ -378,10 +378,8 @@ def start_container(container):
     Note: Backends may have preconditions before this operation can be run.
     '''
     try:
-        spec = request.get_json(force=True).copy()
-        spec.update({'identifier': container})  # TODO: no hard coding
         try:
-            ret = config.container_backend.start_container(spec)
+            ret = config.container_backend.start_container(container)
             return success_response(ret)
         except IllegalContainerSpecificationError:
             return error_response(400, "Illegal specification for container creation")
@@ -426,7 +424,7 @@ def suspend_container(container):
 
     Note: Backends may have preconditions before this operation can be run.
     '''
-    if not isinstance(container_backend, SuspendableContainerBackend):
+    if not isinstance(config.container_backend, SuspendableContainerBackend):
         raise error_response(428, "Container backend does not support the suspend operation")
 
     try:
