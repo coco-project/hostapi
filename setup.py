@@ -13,5 +13,5 @@ setup(
         'docker-py==1.2.1',
         'Flask==0.10.1'
     ],
-    entry_points={'console_scripts': ['ipynbsrv_hostapi = ipynbsrv.hostapi.cli:main']}
+    entry_points={'console_scripts': ['ipynbsrv_hostapi = ipynbsrv.hostapi.cli.server:main']}
 )

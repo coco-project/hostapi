@@ -2,12 +2,17 @@ from ipynbsrv.contract.backends import *
 from docker import Client
 
 
-class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
+class Docker(CloneableContainerBackend, SnapshotableContainerBackend, SuspendableContainerBackend):
     '''
     '''
 
     '''
-    String to identify either a container is running or stopped.
+    String to identify either a container is paused from its status field.
+    '''
+    PAUSED_IDENTIFIER = '(Paused)'
+
+    '''
+    String to identify either a container is running or stopped from its status field.
     '''
     RUNNING_IDENTIFIER = 'Up'
 
@@ -24,14 +29,17 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     :inherit
     '''
     def clone_container(self, container, clone, **kwargs):
-        pass
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+
+        raise NotImplementedError
 
     '''
     :inherit
     '''
     def container_exists(self, container, **kwargs):
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if ct['Id'] == container), False)
+        return next((ct for ct in containers if container == ct.get('Id')), False)
 
     '''
     :inherit
@@ -41,26 +49,48 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
             raise ContainerNotFoundError
 
         container = self.get_container(container)
-        return container['Status'].startswith(Docker.RUNNING_IDENTIFIER)
+        return container.get('Status').startswith(Docker.RUNNING_IDENTIFIER)
 
     '''
     :inherit
     '''
-    def container_snapshot_exists(self, container, name, **kwargs):
-        raise NotImplemented
+    def container_is_suspended(self, container, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+
+        container = self.get_container(container)
+        return container.get('Status').endswith(Docker.PAUSED_IDENTIFIER)
 
     '''
     :inherit
     '''
-    def create_container(self, container, **kwargs):
+    def container_snapshot_exists(self, container, snapshot, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+
+        # TODO: ... coordinate with get_container_snapshots
+        snapshots = self.get_container_snapshots(container)
+        return next((sh for sh in snapshots if snapshot == sh.get('Id')), False)
+
+    '''
+    :inherit
+
+    :param specification: A dict with the fields as per get_required_container_creation_fields.
+    :param kwargs: Optional arguments for docker-py's create_container method.
+    '''
+    def create_container(self, specification, **kwargs):
+        # if self.container_exists(container):
+        #     raise ContainerBackendError("A container with that name already exists.")
+
+        self.validate_container_creation_specification(specification)
         try:
             return self.client.create_container(
-                name=container.get('name'),
-                image=container.get('image'),
-                command=container.get('command'),
-                ports=container.get('ports'),
-                volumes=container.get('volumes'),
-                environment=container.get('env'),
+                name=specification.get('name'),
+                image=specification.get('image'),
+                command=specification.get('command'),
+                ports=kwargs.get('ports'),
+                volumes=kwargs.get('volumes'),
+                environment=kwargs.get('env'),
                 # TODO: other optional params
                 detach=True
             )
@@ -70,24 +100,20 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     '''
     :inherit
 
-    :param name: The snapshots name in required 'repository:tag' format.
+    TODO: document
     '''
-    def create_container_snapshot(self, container, name, **kwargs):
+    def create_container_snapshot(self, container, specification, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
-        if self.container_snapshot_exists(container, name):
-            raise ContainerBackendError("A snapshot with that name already exists for the given container")
+        # if self.container_snapshot_exists(container, name):
+        #     raise ContainerBackendError("A snapshot with that name already exists for the given container.")
 
-        parts = name.split(':')
-        if len(parts) != 2:
-            raise ValueError("Illegal name. Must be in the form repository:tag")
-        repository = parts[0]
-        tag = parts[1]
+        self.validate_container_snapshot_creation_specification(specification)
         try:
             return self.client.commit(
                 container=container,
-                repository=repository,
-                tag=tag
+                repository=specification.get('name'),
+                tag='snapshot'
             )
         except Exception as ex:
             raise ContainerBackendError(ex)
@@ -117,7 +143,12 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
             raise ContainerNotFoundError
         if self.container_snapshot_exists(container, snapshot):
             raise ContainerSnapshotNotFoundError
-        raise NotImplemented
+
+        try:
+            snapshot = self.get_container_snapshot(container, snapshot)
+            return self.client.remove_image(snapshot.get('Id'))
+        except Exception as ex:
+            raise ContainerBackendError(ex)
 
     '''
     :inherit
@@ -126,6 +157,8 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
         if not self.container_exists(container):
             raise ContainerNotFoundError
         if not self.container_is_running(container):
+            raise IllegalContainerStateError
+        if self.container_is_suspended(container):
             raise IllegalContainerStateError
 
         try:
@@ -140,8 +173,9 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     def get_container(self, container):
         if not self.container_exists(container):
             raise ContainerNotFoundError
+
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if ct['Id'] == container), None)
+        return next(ct for ct in containers if container == ct.get('Id'))
 
     '''
     :inherit
@@ -159,7 +193,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
                 stream=False,
                 timestamps=(timestamps is True)
             )
-            return filter(lambda x: len(x) > 0,  logs.split('\n'))
+            return filter(lambda x: len(x) > 0,  logs.split('\n'))  # remove empty lines
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -167,13 +201,32 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     :inherit
     '''
     def get_container_snapshot(self, container, snapshot, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+        if not self.container_snapshot_exists(container, snapshot):
+            raise ContainerSnapshotNotFoundError
+
         raise NotImplementedError
 
     '''
     :inherit
+
+    :param container: The name of the container to check for images.
     '''
     def get_container_snapshots(self, container, **kwargs):
-        raise NotImplementedError
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+
+        try:
+            # TODO: define snapshot image format
+            snapshots = []
+            for snapshot in self.client.images():
+                for repotag in snapshot.get('RepoTags'):
+                    if repotag.startswith('%s/snapshot' % container):
+                        snapshots.append(snapshot)
+            return snapshots
+        except:
+            raise ContainerBackendError(ex)
 
     '''
     :inherit
@@ -187,7 +240,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     '''
     :inherit
     '''
-    def get_required_creation_fields(self):
+    def get_required_container_creation_fields(self):
         return [
             ('name', basestring),
             ('image', basestring),
@@ -197,9 +250,17 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     '''
     :inherit
     '''
-    def get_required_start_fields(self):
+    def get_required_container_start_fields(self):
         return [
             ('identifier', basestring)
+        ]
+
+    '''
+    :inherit
+    '''
+    def get_required_snapshot_creation_fields(self):
+        return [
+            ('name', basestring)
         ]
 
     '''
@@ -224,10 +285,33 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
     :inherit
     '''
     def restore_container_snapshot(self, container, snapshot, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+        if not self.container_snapshot_exists(container, snapshot):
+            raise ContainerSnapshotNotFoundError
+
         raise NotImplementedError
 
     '''
     :inherit
+    '''
+    def resume_container(self, container, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+        if not self.container_is_running(container):
+            raise IllegalContainerStateError
+        if not self.container_is_suspended(container):
+            raise IllegalContainerStateError
+
+        try:
+            return self.client.unpause(container=container)
+        except Exception as ex:
+            raise ContainerBackendError(ex)
+
+    '''
+    :inherit
+
+    :param kwargs: All optional arguments the docker-py library accepts as well.
     '''
     def start_container(self, container, **kwargs):
         if not self.container_exists(container):
@@ -236,7 +320,7 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
             raise IllegalContainerStateError
 
         try:
-            return self.client.start(container=container.get('identifier'))
+            return self.client.start(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -259,3 +343,51 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend):
                 return self.client.stop(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
+
+    '''
+    :inherit
+    '''
+    def suspend_container(self, container, **kwargs):
+        if not self.container_exists(container):
+            raise ContainerNotFoundError
+        if not self.container_is_running(container):
+            raise IllegalContainerStateError
+        if self.container_is_suspended(container):
+            raise IllegalContainerStateError
+
+        try:
+            return self.client.pause(container=container)
+        except Exception as ex:
+            raise ContainerBackendError(ex)
+
+    '''
+    Validates that the specification matches the definition
+    returned by the get_required_container_creation_fields method.
+
+    :param specification: The specification to validate.
+    '''
+    def validate_container_creation_specification(self, specification):
+        for rname, rtype in self.get_required_container_creation_fields():
+            field = specification.get(rname)
+            if field is None:
+                raise IllegalContainerSpecificationError("Required field %s missing." % rname)
+            elif not isinstance(field, rtype):
+                raise IllegalContainerSpecificationError("Required field %s of wrong type. %s expected, %s given." % (field, rtype, type(field)))
+
+        return specification
+
+    '''
+    Validates that the specification matches the definition
+    returned by the get_required_container_snapshot_creation_fields method.
+
+    :param specification: The specification to validate.
+    '''
+    def validate_container_snapshot_creation_specification(self, specification):
+        for rname, rtype in self.get_required_snapshot_creation_fields():
+            field = specification.get(rname)
+            if field is None:
+                raise IllegalContainerSpecificationError("Required field %s missing." % rname)
+            elif not isinstance(field, rtype):
+                raise IllegalContainerSpecificationError("Required field %s of wrong type. %s expected, %s given." % (field, rtype, type(field)))
+
+        return specification
