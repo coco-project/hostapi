@@ -116,6 +116,31 @@ def get_images():
         return error_response(500, "Unexpected error")
 
 
+@blueprint.route('/images', methods=['POST'])
+def create_image():
+    '''
+    Creates a container image as per the specification included in the POST body.
+    '''
+    if not isinstance(container_backend, ImageBasedContainerBackend):
+        return error_response(428, "Container backend is not image based")
+
+    try:
+        json = request.get_json(force=True).copy()
+        try:
+            image = container_backend.create_image(json)
+            return success_response(image)
+        except IllegalContainerSpecificationError:
+            return error_response(400, "Illegal specification for container image creation")
+        except ContainerBackendError:
+            return error_response(500, "Unexpected container backend error")
+        except NotImplementedError:
+            return error_response(501, "Not implemented")
+        except:
+            return error_response(500, "Unexpected error")
+    except:
+        return error_response(400, "Bad request")
+
+
 @blueprint.route('/<container>/logs', methods=['GET'])
 def get_container_logs(container):
     '''
@@ -318,7 +343,7 @@ def get_container_snapshots(container):
 @blueprint.route('/<container>/snapshots', methods=['POST'])
 def create_container_snapshot(container):
     '''
-    Creates a new container snapshot for the container.
+    Creates a new container snapshot for the container as per the specification in the request body.
 
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
@@ -463,7 +488,7 @@ def delete_container(container):
 @blueprint.route('', methods=['GET'])
 def get_containers():
     '''
-    Returns a list of all containers the backend knows of.
+    Returns a list of all containers the backend knows.
     '''
     try:
         containers = container_backend.get_containers()
