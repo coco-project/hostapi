@@ -24,7 +24,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     :param base_url: The URL or unix path to the Docker API endpoint.
     '''
     def __init__(self, version, base_url='unix://var/run/docker.sock'):
-        self.client = Client(base_url=base_url, version=version)
+        self._client = Client(base_url=base_url, version=version)
 
     '''
     :inherit
@@ -85,7 +85,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         self.validate_container_creation_specification(specification)
         try:
-            return self.client.create_container(
+            return self._client.create_container(
                 name=specification.get('name'),
                 image=specification.get('image'),
                 command=specification.get('command'),
@@ -111,7 +111,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         self.validate_container_snapshot_creation_specification(specification)
         try:
-            return self.client.commit(
+            return self._client.commit(
                 container=container,
                 repository=specification.get('name'),
                 tag='snapshot'
@@ -132,7 +132,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
             raise IllegalContainerStateError
 
         try:
-            return self.client.remove_container(container=container, force=(force is True))
+            return self._client.remove_container(container=container, force=(force is True))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -147,7 +147,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         try:
             snapshot = self.get_container_snapshot(container, snapshot)
-            return self.client.remove_image(snapshot.get('Id'))
+            return self._client.remove_image(snapshot.get('Id'))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -160,7 +160,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         force = kwargs.get('force')
         try:
-            self.client.remove_image(image=image, force=(force is True))
+            self._client.remove_image(image=image, force=(force is True))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -176,8 +176,8 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
             raise IllegalContainerStateError
 
         try:
-            exec_id = self.client.exec_create(container=container, cmd=cmd)
-            return self.client.exec_start(exec_id=exec_id, stream=False)
+            exec_id = self._client.exec_create(container=container, cmd=cmd)
+            return self._client.exec_start(exec_id=exec_id, stream=False)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -202,7 +202,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         timestamps = kwargs.get('timestamps')
         try:
-            logs = self.client.logs(
+            logs = self._client.logs(
                 container=container,
                 stream=False,
                 timestamps=(timestamps is True)
@@ -234,7 +234,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
         try:
             # TODO: define snapshot image format
             snapshots = []
-            for snapshot in self.client.images():
+            for snapshot in self._client.images():
                 for repotag in snapshot.get('RepoTags'):
                     if repotag.startswith('%s/snapshot' % container):
                         snapshots.append(snapshot)
@@ -247,7 +247,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     '''
     def get_containers(self, only_running=False, **kwargs):
         try:
-            return self.client.containers(all=(not only_running))
+            return self._client.containers(all=(not only_running))
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -266,7 +266,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     '''
     def get_images(self, **kwargs):
         try:
-            return self.client.images()
+            return self._client.images()
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -315,9 +315,9 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
         force = kwargs.get('force')
         try:
             if force:
-                return self.client.restart(container=container, timeout=0)
+                return self._client.restart(container=container, timeout=0)
             else:
-                return self.client.restart(container=container)
+                return self._client.restart(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -344,7 +344,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
             raise IllegalContainerStateError
 
         try:
-            return self.client.unpause(container=container)
+            return self._client.unpause(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -360,7 +360,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
             raise IllegalContainerStateError
 
         try:
-            return self.client.start(container=container)
+            return self._client.start(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -378,9 +378,9 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
         force = kwargs.get('force')
         try:
             if force:
-                return self.client.stop(container=container, timeout=0)
+                return self._client.stop(container=container, timeout=0)
             else:
-                return self.client.stop(container=container)
+                return self._client.stop(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -396,7 +396,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
             raise IllegalContainerStateError
 
         try:
-            return self.client.pause(container=container)
+            return self._client.pause(container=container)
         except Exception as ex:
             raise ContainerBackendError(ex)
 

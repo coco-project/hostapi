@@ -1,12 +1,11 @@
 from flask import Blueprint, request
 from ipynbsrv.contract.backends import *
-from ipynbsrv.hostapi.backends.container_backends import Docker
+from ipynbsrv.hostapi import config
 from ipynbsrv.hostapi.http.routes.common import error_response, success_response
 
 '''
 '''
 blueprint = Blueprint('containers', __name__, url_prefix='/containers')
-container_backend = Docker(version="1.18")
 
 
 @blueprint.route('/<container>/clone', methods=['POST'])
@@ -31,7 +30,7 @@ def exec_in_container(container):
         command = request.get_json(force=True).get('command')
         if command:
             try:
-                output = container_backend.exec_in_container(container, command)
+                output = config.container_backend.exec_in_container(container, command)
                 return success_response(output)
             except ContainerNotFoundError:
                 return error_response(404, "Container not found")
@@ -60,7 +59,7 @@ def get_image(image):
         return error_response(428, "Container backend is not image based")
 
     try:
-        image = container_backend.get_image(image)
+        image = config.container_backend.get_image(image)
         return success_response(image)
     except ContainerImageNotFoundError:
         return error_response(404, "Container image not found")
@@ -83,7 +82,7 @@ def delete_image(image):
         return error_response(428, "Container backend is not image based")
 
     try:
-        ret = container_backend.delete_image(image)
+        ret = config.container_backend.delete_image(image)
         return success_response(ret)
     except ContainerImageNotFoundError:
         return error_response(404, "Container image not found")
@@ -106,7 +105,7 @@ def get_images():
         return error_response(428, "Container backend is not image based")
 
     try:
-        images = container_backend.get_images()
+        images = config.container_backend.get_images()
         return success_response(images)
     except ContainerBackendError:
         return error_response(500, "Unexpected container backend error")
@@ -127,7 +126,7 @@ def create_image():
     try:
         json = request.get_json(force=True).copy()
         try:
-            image = container_backend.create_image(json)
+            image = config.container_backend.create_image(json)
             return success_response(image)
         except IllegalContainerSpecificationError:
             return error_response(400, "Illegal specification for container image creation")
@@ -147,7 +146,7 @@ def get_container_logs(container):
     Returns a list of log messages the container has produced.
     '''
     try:
-        logs = container_backend.get_container_logs(container)
+        logs = config.container_backend.get_container_logs(container)
         return success_response(logs)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -169,7 +168,7 @@ def get_public_key(container):
     TODO: hmmmm....
     '''
     try:
-        public_key = container_backend.exec_in_container(
+        public_key = config.container_backend.exec_in_container(
             container,
             # TODO: magic string; depends on EncryptionService...
             "cat /etc/ssh/ssh_host_rsa_key.pub"
@@ -193,7 +192,7 @@ def restart_container(container):
     Restarts the container.
     '''
     try:
-        ret = container_backend.restart_container(container, force=True)
+        ret = config.container_backend.restart_container(container, force=True)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -218,7 +217,7 @@ def resume_container(container):
         raise error_response(428, "Container backend does not support the resume operation")
 
     try:
-        ret = container_backend.resume_container(container)
+        ret = config.container_backend.resume_container(container)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -243,7 +242,7 @@ def restore_container_snapshots(container, snapshot):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
-        ret = container_backend.restore_container_snapshot(container, snapshot)
+        ret = config.container_backend.restore_container_snapshot(container, snapshot)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -270,7 +269,7 @@ def delete_container_snapshots(container, snapshot):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
-        ret = container_backend.delete_container_snapshot(container, snapshot)
+        ret = config.container_backend.delete_container_snapshot(container, snapshot)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -297,7 +296,7 @@ def get_container_snapshot(container, snapshot):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
-        snapshot = container_backend.get_container_snapshot(container, snapshot)
+        snapshot = config.container_backend.get_container_snapshot(container, snapshot)
         return success_response(snapshot)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -324,7 +323,7 @@ def get_container_snapshots(container):
         return error_response(428, "The container backend has no built-in support for snapshots")
 
     try:
-        snapshots = container_backend.get_container_snapshots(container)
+        snapshots = config.container_backend.get_container_snapshots(container)
         return success_response(snapshots)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -353,7 +352,7 @@ def create_container_snapshot(container):
     try:
         specs = request.get_json(force=True).copy()
         try:
-            snapshot = container_backend.create_container_snapshot(container, specs)
+            snapshot = config.container_backend.create_container_snapshot(container, specs)
             return success_response(snapshot)
         except ContainerNotFoundError:
             return error_response(404, "Container not found")
@@ -382,7 +381,7 @@ def start_container(container):
         spec = request.get_json(force=True).copy()
         spec.update({'identifier': container})  # TODO: no hard coding
         try:
-            ret = container_backend.start_container(spec)
+            ret = config.container_backend.start_container(spec)
             return success_response(ret)
         except IllegalContainerSpecificationError:
             return error_response(400, "Illegal specification for container creation")
@@ -406,7 +405,7 @@ def stop_container(container):
     Note: Backends may have preconditions before this operation can be run.
     '''
     try:
-        ret = container_backend.stop_container(container, force=True)
+        ret = config.container_backend.stop_container(container, force=True)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -431,7 +430,7 @@ def suspend_container(container):
         raise error_response(428, "Container backend does not support the suspend operation")
 
     try:
-        ret = container_backend.suspend_container(container)
+        ret = config.container_backend.suspend_container(container)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -451,7 +450,7 @@ def get_container(container):
     Returns information about the requested container.
     '''
     try:
-        container = container_backend.get_container(container)
+        container = config.container_backend.get_container(container)
         return success_response(container)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -471,7 +470,7 @@ def delete_container(container):
     Deletes the referenced container from the backend.
     '''
     try:
-        ret = container_backend.delete_container(container)
+        ret = config.container_backend.delete_container(container)
         return success_response(ret)
     except ContainerNotFoundError:
         return error_response(404, "Container not found")
@@ -491,7 +490,7 @@ def get_containers():
     Returns a list of all containers the backend knows.
     '''
     try:
-        containers = container_backend.get_containers()
+        containers = config.container_backend.get_containers()
         return success_response(containers)
     except ContainerBackendError:
         return error_response(500, "Unexpected container backend error")
@@ -512,7 +511,7 @@ def create_container():
     try:
         json = request.get_json(force=True).copy()
         try:
-            container = container_backend.create_container(json)
+            container = config.container_backend.create_container(json)
             return success_response(container)
         except IllegalContainerSpecificationError:
             return error_response(400, "Illegal specification for container creation")

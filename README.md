@@ -5,13 +5,20 @@
 ## Synopsis
 
 ```bash
-usage: ipynbsrv_hostapi [-h] [-d, --debug] [-l, --listen ADDRESS] [-p, --port PORT]
+usage: ipynbsrv_hostapi [-h] [--container-backend CONTAINER_BACKEND]
+                        [--container-backend-args CONTAINER_BACKEND_ARGS]
+                        [-d, --debug] [-l, --listen ADDRESS] [-p, --port PORT]
 
 optional arguments:
   -h, --help            show this help message and exit
-  -d, --debug           Run in debug mode.
-  -l, --listen ADDRESS  The address to listne on.
-  -p, --port PORT       The port to bind to.
+  --container-backend CONTAINER_BACKEND
+                        absolute name of the container backend module to load
+  --container-backend-args CONTAINER_BACKEND_ARGS
+                        arguments to pass to the container backend upon
+                        initialization
+  -d, --debug           run in debug mode
+  -l, --listen ADDRESS  the address to listne on
+  -p, --port PORT       the port to bind to
 ```
 
 ## HTTP REST API Overview
