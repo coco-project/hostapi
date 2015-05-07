@@ -1,3 +1,4 @@
+import argparse
 from flask import Flask
 from ipynbsrv.hostapi.http.routes.containers import blueprint as containers
 import sys
@@ -5,13 +6,20 @@ import sys
 
 def main():
     '''
+    ipynbsrv host API command-line interface entry point.
     '''
+    parser = argparse.ArgumentParser(description="ipynbsrv host API CLI tool.")
+    parser.add_argument('-d, --debug', help='Run in debug mode.',
+                        action='store_true', default=False, dest='debug')
+    parser.add_argument('-l, --listen', help='The address to listne on.',
+                        action='store', type=str, default='0.0.0.0', dest='address')
+    parser.add_argument('-p, --port', help='The port to bind to.',
+                        action='store', type=int, default=8080, dest='port')
+    args = parser.parse_args()
+
     app = Flask(__name__)
-    app.secret_key = "uk1`\x15%\xdcl;\x8b\xa1\x9aK\x85\xa9\xd3@Fs\xdcQku\xf4"
-
     app.register_blueprint(containers)
-
-    app.run(debug=True, host='0.0.0.0', port=49160)
+    app.run(debug=args.debug, host=args.address, port=args.port)
 
 
 if __name__ == "__main__":

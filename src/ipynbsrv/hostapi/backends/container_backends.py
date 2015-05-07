@@ -2,7 +2,8 @@ from ipynbsrv.contract.backends import *
 from docker import Client
 
 
-class Docker(CloneableContainerBackend, SnapshotableContainerBackend, SuspendableContainerBackend):
+class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
+             SnapshotableContainerBackend, SuspendableContainerBackend):
     '''
     '''
 
@@ -153,6 +154,19 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend, Suspendabl
     '''
     :inherit
     '''
+    def delete_image(self, image, **kwargs):
+        if not self.image_exists(image):
+            raise ContainerImageNotFoundError
+
+        force = kwargs.get('force')
+        try:
+            self.client.remove_image(image=image, force=(force is True))
+        except Exception as ex:
+            raise ContainerBackendError(ex)
+
+    '''
+    :inherit
+    '''
     def exec_in_container(self, container, cmd, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
@@ -240,6 +254,25 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend, Suspendabl
     '''
     :inherit
     '''
+    def get_image(self, image, **kwargs):
+        if not self.image_exists(image):
+            raise ContainerImageNotFoundError
+
+        images = self.get_images()
+        return next(img for img in images if image == img.get('Id'))
+
+    '''
+    :inherit
+    '''
+    def get_images(self, **kwargs):
+        try:
+            return self.client.images()
+        except Exception as ex:
+            raise ContainerBackendError(ex)
+
+    '''
+    :inherit
+    '''
     def get_required_container_creation_fields(self):
         return [
             ('name', basestring),
@@ -262,6 +295,13 @@ class Docker(CloneableContainerBackend, SnapshotableContainerBackend, Suspendabl
         return [
             ('name', basestring)
         ]
+
+    '''
+    :inherit
+    '''
+    def image_exists(self, image, **kwargs):
+        images = self.get_images()
+        return next((img for img in images if image == img.get('Id')), False)
 
     '''
     :inherit
