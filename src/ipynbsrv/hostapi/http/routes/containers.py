@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, make_response, request, url_for
 from ipynbsrv.contract.backends import *
 from ipynbsrv.hostapi import config
 from ipynbsrv.hostapi.http.responses import *
@@ -31,7 +31,7 @@ def exec_in_container(container):
         if command:
             try:
                 output = config.container_backend.exec_in_container(container, command)
-                return success_response(output)
+                return success_ok(output)
             except ContainerNotFoundError:
                 return error_not_found("Container not found")
             except IllegalContainerStateError:
@@ -41,7 +41,7 @@ def exec_in_container(container):
             except NotImplementedError:
                 return error_not_implemented()
             except:
-            return error_unexpected_error()
+                return error_unexpected_error()
         else:
             return error_unprocessable_entity("Command missing")
     except:
@@ -60,7 +60,7 @@ def get_image(image):
 
     try:
         image = config.container_backend.get_image(image)
-        return success_response(image)
+        return success_ok(image)
     except ContainerImageNotFoundError:
             return error_not_found("Container image not found")
     except ContainerBackendError:
@@ -106,7 +106,7 @@ def get_images():
 
     try:
         images = config.container_backend.get_images()
-        return success_response(images)
+        return success_ok(images)
     except ContainerBackendError:
         return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
@@ -147,7 +147,7 @@ def get_container_logs(container):
     '''
     try:
         logs = config.container_backend.get_container_logs(container)
-        return success_response(logs)
+        return success_ok(logs)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
     except IllegalContainerStateError:
@@ -173,7 +173,7 @@ def get_public_key(container):
             # TODO: magic string; depends on EncryptionService...
             "cat /etc/ssh/ssh_host_rsa_key.pub"
         )
-        return success_response(public_key)
+        return success_ok(public_key)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
     except IllegalContainerStateError:
@@ -297,7 +297,7 @@ def get_container_snapshot(container, snapshot):
 
     try:
         snapshot = config.container_backend.get_container_snapshot(container, snapshot)
-        return success_response(snapshot)
+        return success_ok(snapshot)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
     except ContainerSnapshotNotFoundError:
@@ -317,12 +317,12 @@ def get_container_snapshots(container):
 
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, SnapshotableContainerBackend):
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_precondition_required("Snapshotable backend required")
 
     try:
         snapshots = config.container_backend.get_container_snapshots(container)
-        return success_response(snapshots)
+        return success_ok(snapshots)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
     except ContainerSnapshotNotFoundError:
@@ -342,7 +342,7 @@ def create_container_snapshot(container):
 
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
-    if not isinstance(container_backend, SnapshotableContainerBackend):
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_precondition_required("Snapshotable backend required")
 
     try:
@@ -445,7 +445,7 @@ def get_container(container):
     '''
     try:
         container = config.container_backend.get_container(container)
-        return success_response(container)
+        return success_ok(container)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
     except ContainerBackendError:
@@ -504,6 +504,8 @@ def create_container():
         json = request.get_json(force=True).copy()
         try:
             container_pk = config.container_backend.create_container(json)
+            print container_pk
+            print url_for('.get_container', container=container_pk)
             return success_created(container_pk, url_for('.get_container', container=container_pk))
         except IllegalContainerSpecificationError:
             return error_unprocessable_entity("Invalid container specification")

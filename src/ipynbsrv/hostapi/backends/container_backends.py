@@ -1,5 +1,6 @@
 from ipynbsrv.contract.backends import *
 from docker import Client
+import time
 
 
 class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
@@ -16,6 +17,11 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     String to identify either a container is running or stopped from its status field.
     '''
     RUNNING_IDENTIFIER = 'Up'
+
+    '''
+    Prefix for snapshots.
+    '''
+    SNAPSHOT_PREFIX = 'snapshot_'
 
     '''
     Initializes a new Docker container backend.
@@ -69,7 +75,6 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
         if not self.container_exists(container):
             raise ContainerNotFoundError
 
-        # TODO: ... coordinate with get_container_snapshots
         snapshots = self.get_container_snapshots(container)
         return next((sh for sh in snapshots if snapshot == sh.get('Id')), False)
 
@@ -112,10 +117,11 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         self.validate_container_snapshot_creation_specification(specification)
         try:
+            container = self.get_container(container)
             snapshot = self._client.commit(
                 container=container,
-                repository=specification.get('name'),
-                tag='snapshot'
+                repository=container.get('Names')[0].replace('/', ''),
+                tag=Docker.SNAPSHOT_PREFIX + specification.get('name')
             )
             return snapshot.get('Id')
         except Exception as ex:
@@ -144,12 +150,11 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     def delete_container_snapshot(self, container, snapshot, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
-        if self.container_snapshot_exists(container, snapshot):
+        if not self.container_snapshot_exists(container, snapshot):
             raise ContainerSnapshotNotFoundError
 
         try:
-            snapshot = self.get_container_snapshot(container, snapshot)
-            return self._client.remove_image(snapshot.get('Id'))
+            return self._client.remove_image(snapshot)
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -222,7 +227,8 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
         if not self.container_snapshot_exists(container, snapshot):
             raise ContainerSnapshotNotFoundError
 
-        raise NotImplementedError
+        snapshots = self.get_container_snapshots(container)
+        return next(sh for sh in snapshots if snapshot == sh.get('Id'))
 
     '''
     :inherit
@@ -233,12 +239,12 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
         if not self.container_exists(container):
             raise ContainerNotFoundError
 
+        container_name = self.get_container(container).get('Names')[0].replace('/', '')
         try:
-            # TODO: define snapshot image format
             snapshots = []
             for snapshot in self._client.images():
                 for repotag in snapshot.get('RepoTags'):
-                    if repotag.startswith('%s/snapshot' % container):
+                    if repotag.startswith('%s:%s' % (container_name, Docker.SNAPSHOT_PREFIX)):
                         snapshots.append(snapshot)
             return snapshots
         except:
