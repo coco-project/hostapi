@@ -46,7 +46,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     '''
     def container_exists(self, container, **kwargs):
         containers = self.get_containers(only_running=False)
-        return next((ct for ct in containers if container == ct.get('Id')), False)
+        return next((ct for ct in containers if container == ct.get('Id')), False) is not False
 
     '''
     :inherit
@@ -177,9 +177,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     def exec_in_container(self, container, cmd, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
-        if not self.container_is_running(container):
-            raise IllegalContainerStateError
-        if self.container_is_suspended(container):
+        if not self.container_is_running(container) or self.container_is_suspended(container):
             raise IllegalContainerStateError
 
         try:
@@ -191,7 +189,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     '''
     :inherit
     '''
-    def get_container(self, container):
+    def get_container(self, container, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
 
@@ -245,6 +243,9 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
             for snapshot in self._client.images():
                 for repotag in snapshot.get('RepoTags'):
                     if repotag.startswith('%s:%s' % (container_name, Docker.SNAPSHOT_PREFIX)):
+                        # add required fields as per API specification
+                        snapshot['pk'] = snapshot.get('Id')
+
                         snapshots.append(snapshot)
             return snapshots
         except:
@@ -255,7 +256,18 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     '''
     def get_containers(self, only_running=False, **kwargs):
         try:
-            return self._client.containers(all=(not only_running))
+            containers = self._client.containers(all=(not only_running))
+            for container in containers:
+                # add required fields as per API specification
+                container['pk'] = container.get('Id')
+                status = 'running'
+                # TODO: use is_running and is_suspended methods. recursion
+                if not container.get('Status').startswith(Docker.RUNNING_IDENTIFIER):
+                    status = 'stopped'
+                elif container.get('Status').endswith(Docker.PAUSED_IDENTIFIER):
+                    status = 'suspended'
+                container['status'] = status
+            return containers
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -274,7 +286,11 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     '''
     def get_images(self, **kwargs):
         try:
-            return self._client.images()
+            images = self._client.images()
+            for image in images:
+                # add required fields as per API specification
+                image['pk'] = image.get('Id')
+            return images
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -346,9 +362,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     def resume_container(self, container, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
-        if not self.container_is_running(container):
-            raise IllegalContainerStateError
-        if not self.container_is_suspended(container):
+        if not self.container_is_running(container) or not self.container_is_suspended(container):
             raise IllegalContainerStateError
 
         try:
@@ -398,9 +412,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
     def suspend_container(self, container, **kwargs):
         if not self.container_exists(container):
             raise ContainerNotFoundError
-        if not self.container_is_running(container):
-            raise IllegalContainerStateError
-        if self.container_is_suspended(container):
+        if not self.container_is_running(container) or self.container_is_suspended(container):
             raise IllegalContainerStateError
 
         try:
