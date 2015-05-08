@@ -13,12 +13,12 @@ def main():
     # define available arguments
     parser = argparse.ArgumentParser(description="ipynbsrv host API CLI tool")
     parser.add_argument('--container-backend', help='absolute name of the container backend module to load',
-                        action='store', type=str, default="ipynbsrv.hostapi.backends.container_backends.Docker", dest='container_backend')
+                        action='store', type=str, default="ipynbsrv.backends.container_backends.Docker", dest='container_backend')
     parser.add_argument('--container-backend-args', help='arguments to pass to the container backend upon initialization',
                         action='store', type=str, default="version='1.18'", dest='container_backend_args')
     parser.add_argument('-d, --debug', help='run in debug mode',
                         action='store_true', default=False, dest='debug')
-    parser.add_argument('-l, --listen', help='the address to listne on',
+    parser.add_argument('-l, --listen', help='the address to listen on',
                         action='store', type=str, default='0.0.0.0', dest='address')
     parser.add_argument('-p, --port', help='the port to bind to',
                         action='store', type=int, default=8080, dest='port')

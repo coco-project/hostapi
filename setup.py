@@ -9,8 +9,8 @@ setup(
     package_dir={'': 'src'},
     namespace_packages=['ipynbsrv'],
     install_requires=[
+        'ipynbsrv-backends',
         'ipynbsrv-contract',
-        'docker-py==1.2.1',
         'Flask==0.10.1'
     ],
     entry_points={'console_scripts': ['ipynbsrv_hostapi = ipynbsrv.hostapi.cli.server:main']}

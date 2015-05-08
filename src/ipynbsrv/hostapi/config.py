@@ -1,4 +1,4 @@
-from ipynbsrv.hostapi.backends.container_backends import Docker
+from ipynbsrv.backends.container_backends import Docker
 
 '''
 '''

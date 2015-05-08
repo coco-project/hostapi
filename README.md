@@ -17,7 +17,7 @@ optional arguments:
                         arguments to pass to the container backend upon
                         initialization
   -d, --debug           run in debug mode
-  -l, --listen ADDRESS  the address to listne on
+  -l, --listen ADDRESS  the address to listen on
   -p, --port PORT       the port to bind to
 ```
 
