@@ -85,7 +85,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         self.validate_container_creation_specification(specification)
         try:
-            return self._client.create_container(
+            container = self._client.create_container(
                 name=specification.get('name'),
                 image=specification.get('image'),
                 command=specification.get('command'),
@@ -95,6 +95,7 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
                 # TODO: other optional params
                 detach=True
             )
+            return container.get('Id')
         except Exception as ex:
             raise ContainerBackendError(ex)
 
@@ -111,11 +112,12 @@ class Docker(CloneableContainerBackend, ImageBasedContainerBackend,
 
         self.validate_container_snapshot_creation_specification(specification)
         try:
-            return self._client.commit(
+            snapshot = self._client.commit(
                 container=container,
                 repository=specification.get('name'),
                 tag='snapshot'
             )
+            return snapshot.get('Id')
         except Exception as ex:
             raise ContainerBackendError(ex)
 

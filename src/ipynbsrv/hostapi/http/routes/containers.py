@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 from ipynbsrv.contract.backends import *
 from ipynbsrv.hostapi import config
-from ipynbsrv.hostapi.http.routes.common import error_response, success_response
+from ipynbsrv.hostapi.http.responses import *
 
 '''
 '''
@@ -16,9 +16,9 @@ def clone_container(container):
     TODO: hmm.....
     '''
     if not isinstance(config.container_backend, CloneableContainerBackend):
-        return error_response(428, "Container backend does not support the clone operation")
+        return error_precondition_required("Cloneable backend required")
 
-    return error_response(501, "Not implemented")
+    return error_not_implemented()
 
 
 @blueprint.route('/<container>/exec', methods=['POST'])
@@ -33,19 +33,19 @@ def exec_in_container(container):
                 output = config.container_backend.exec_in_container(container, command)
                 return success_response(output)
             except ContainerNotFoundError:
-                return error_response(404, "Container not found")
+                return error_not_found("Container not found")
             except IllegalContainerStateError:
-                return error_response(412, "Container in illegal state for requested action")
+                return error_precondition_failed("Container in illegal state for requested action")
             except ContainerBackendError:
-                return error_response(500, "Unexpected container backend error")
+                return error_unexpected_error("Unexpected backend error")
             except NotImplementedError:
-                return error_response(501, "Not implemented")
+                return error_not_implemented()
             except:
-                return error_response(500, "Unexpected error")
+            return error_unexpected_error()
         else:
-            return error_response(400, "Command missing")
+            return error_unprocessable_entity("Command missing")
     except:
-        return error_response(400, "Bad request")
+        return error_bad_request()
 
 
 @blueprint.route('/images/<image>', methods=['GET'])
@@ -56,19 +56,19 @@ def get_image(image):
     Note: If the backend does not support images, a precondition required error is returned.
     '''
     if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_response(428, "Container backend is not image based")
+        return error_precondition_required("Image based backend required")
 
     try:
         image = config.container_backend.get_image(image)
         return success_response(image)
     except ContainerImageNotFoundError:
-        return error_response(404, "Container image not found")
+            return error_not_found("Container image not found")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/images/<image>', methods=['DELETE'])
@@ -79,19 +79,19 @@ def delete_image(image):
     Note: If the backend does not support images, a precondition required error is returned.
     '''
     if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_response(428, "Container backend is not image based")
+        return error_precondition_required("Image based backend required")
 
     try:
-        ret = config.container_backend.delete_image(image)
-        return success_response(ret)
+        config.container_backend.delete_image(image)
+        return success_no_content()
     except ContainerImageNotFoundError:
-        return error_response(404, "Container image not found")
+        return error_not_found("Container image not found")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/images', methods=['GET'])
@@ -102,17 +102,17 @@ def get_images():
     Note: If the backend does not support images, a precondition required error is returned.
     '''
     if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_response(428, "Container backend is not image based")
+        return error_precondition_required("Image based backend required")
 
     try:
         images = config.container_backend.get_images()
         return success_response(images)
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/images', methods=['POST'])
@@ -121,23 +121,23 @@ def create_image():
     Creates a container image as per the specification included in the POST body.
     '''
     if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_response(428, "Container backend is not image based")
+        return error_precondition_required("Image based backend required")
 
     try:
         json = request.get_json(force=True).copy()
         try:
-            image = config.container_backend.create_image(json)
-            return success_response(image)
+            image_pk = config.container_backend.create_image(json)
+            return success_created(image_pk, url_for('.get_image', image=image_pk))
         except IllegalContainerSpecificationError:
-            return error_response(400, "Illegal specification for container image creation")
+            return error_unprocessable_entity("Invalid image specification")
         except ContainerBackendError:
-            return error_response(500, "Unexpected container backend error")
+            return error_unexpected_error("Unexpected backend error")
         except NotImplementedError:
-            return error_response(501, "Not implemented")
+            return error_not_implemented()
         except:
-            return error_response(500, "Unexpected error")
+            return error_unexpected_error()
     except:
-        return error_response(400, "Bad request")
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/logs', methods=['GET'])
@@ -149,15 +149,15 @@ def get_container_logs(container):
         logs = config.container_backend.get_container_logs(container)
         return success_response(logs)
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/public_key', methods=['GET'])
@@ -175,15 +175,15 @@ def get_public_key(container):
         )
         return success_response(public_key)
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/restart', methods=['POST'])
@@ -192,18 +192,18 @@ def restart_container(container):
     Restarts the container.
     '''
     try:
-        ret = config.container_backend.restart_container(container, force=True)
-        return success_response(ret)
+        config.container_backend.restart_container(container, force=True)
+        return success_no_content()
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/resume', methods=['POST'])
@@ -214,21 +214,21 @@ def resume_container(container):
     Note: Backends may have preconditions before this operation can be run.
     '''
     if not isinstance(config.container_backend, SuspendableContainerBackend):
-        raise error_response(428, "Container backend does not support the resume operation")
+        return error_precondition_required("Suspendable backend required")
 
     try:
-        ret = config.container_backend.resume_container(container)
-        return success_response(ret)
+        config.container_backend.resume_container(container)
+        return success_no_content()
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/snapshots/<snapshot>/restore', methods=['POST'])
@@ -239,23 +239,23 @@ def restore_container_snapshots(container, snapshot):
     Note: Backends may have preconditions before this operation can be run.
     '''
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
-        return error_response(428, "The container backend has no built-in support for snapshots")
+        return error_precondition_required("Snapshotable backend required")
 
     try:
-        ret = config.container_backend.restore_container_snapshot(container, snapshot)
-        return success_response(ret)
+        restored_snapshot = config.container_backend.restore_container_snapshot(container, snapshot)
+        return success_ok(restored_snapshot)
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except ContainerSnapshotNotFoundError:
-        return error_response(404, "Container snapshot not found")
+        return error_not_found("Container snapshot not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/snapshots/<snapshot>', methods=['DELETE'])
@@ -266,23 +266,23 @@ def delete_container_snapshots(container, snapshot):
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
-        return error_response(428, "The container backend has no built-in support for snapshots")
+        return error_precondition_required("Snapshotable backend required")
 
     try:
-        ret = config.container_backend.delete_container_snapshot(container, snapshot)
-        return success_response(ret)
+        config.container_backend.delete_container_snapshot(container, snapshot)
+        return success_no_content()
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except ContainerSnapshotNotFoundError:
-        return error_response(404, "Container snapshot not found")
+        return error_not_found("Container snapshot not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/snapshots/<snapshot>', methods=['GET'])
@@ -293,23 +293,21 @@ def get_container_snapshot(container, snapshot):
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
-        return error_response(428, "The container backend has no built-in support for snapshots")
+        return error_precondition_required("Snapshotable backend required")
 
     try:
         snapshot = config.container_backend.get_container_snapshot(container, snapshot)
         return success_response(snapshot)
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except ContainerSnapshotNotFoundError:
-        return error_response(404, "Container snapshot not found")
-    except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_not_found("Container snapshot not found")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/snapshots', methods=['GET'])
@@ -320,23 +318,21 @@ def get_container_snapshots(container):
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
     if not isinstance(container_backend, SnapshotableContainerBackend):
-        return error_response(428, "The container backend has no built-in support for snapshots")
+        return error_precondition_required("Snapshotable backend required")
 
     try:
         snapshots = config.container_backend.get_container_snapshots(container)
         return success_response(snapshots)
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except ContainerSnapshotNotFoundError:
-        return error_response(404, "Container snapshot not found")
-    except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_not_found("Container snapshot not found")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/snapshots', methods=['POST'])
@@ -347,27 +343,27 @@ def create_container_snapshot(container):
     Note: If the backend does not snapshots, a precondition required error is returned.
     '''
     if not isinstance(container_backend, SnapshotableContainerBackend):
-        return error_response(428, "The container backend has no built-in support for snapshots")
+        return error_precondition_required("Snapshotable backend required")
 
     try:
         specs = request.get_json(force=True).copy()
         try:
-            snapshot = config.container_backend.create_container_snapshot(container, specs)
-            return success_response(snapshot)
+            snapshot_pk = config.container_backend.create_container_snapshot(container, specs)
+            return success_created(snapshot_pk, url_for('.get_container_snapshot', container=container, snapshot=snapshot_pk))
         except ContainerNotFoundError:
-            return error_response(404, "Container not found")
+            return error_not_found("Container not found")
         except IllegalContainerSpecificationError:
-            return error_response(400, "Illegal specification for container snapshot creation")
+            return error_unprocessable_entity("Invalid snapshot specification")
         except IllegalContainerStateError:
-            return error_response(412, "Container in illegal state for requested action")
+            return error_precondition_failed("Container in illegal state for requested action")
         except ContainerBackendError:
-            return error_response(500, "Unexpected container backend error")
+            return error_unexpected_error("Unexpected backend error")
         except NotImplementedError:
-            return error_response(501, "Not implemented")
+            return error_not_implemented()
         except:
-            return error_response(500, "Unexpected error")
+            return error_unexpected_error()
     except:
-        return error_response(400, "Bad request")
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/start', methods=['POST'])
@@ -379,20 +375,20 @@ def start_container(container):
     '''
     try:
         try:
-            ret = config.container_backend.start_container(container)
-            return success_response(ret)
-        except IllegalContainerSpecificationError:
-            return error_response(400, "Illegal specification for container creation")
+            config.container_backend.start_container(container)
+            return success_no_content()
+        except ContainerNotFoundError:
+            return error_not_found("Container not found")
         except IllegalContainerStateError:
-            return error_response(412, "Container in illegal state for requested action")
+            return error_precondition_failed("Container in illegal state for requested action")
         except ContainerBackendError:
-            return error_response(500, "Unexpected container backend error")
+            return error_unexpected_error("Unexpected backend error")
         except NotImplementedError:
-            return error_response(501, "Not implemented")
+            return error_not_implemented()
         except:
-            return error_response(500, "Unexpected error")
+            return error_unexpected_error()
     except:
-        return error_response(400, "Bad request")
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/stop', methods=['POST'])
@@ -403,18 +399,18 @@ def stop_container(container):
     Note: Backends may have preconditions before this operation can be run.
     '''
     try:
-        ret = config.container_backend.stop_container(container, force=True)
-        return success_response(ret)
+        config.container_backend.stop_container(container, force=True)
+        return success_no_content()
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>/suspend', methods=['POST'])
@@ -425,21 +421,21 @@ def suspend_container(container):
     Note: Backends may have preconditions before this operation can be run.
     '''
     if not isinstance(config.container_backend, SuspendableContainerBackend):
-        raise error_response(428, "Container backend does not support the suspend operation")
+        return error_precondition_required("Suspendable backend required")
 
     try:
-        ret = config.container_backend.suspend_container(container)
-        return success_response(ret)
+        config.container_backend.suspend_container(container)
+        return success_no_content()
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>', methods=['GET'])
@@ -451,15 +447,13 @@ def get_container(container):
         container = config.container_backend.get_container(container)
         return success_response(container)
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
-    except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_not_found("Container not found")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('/<container>', methods=['DELETE'])
@@ -468,18 +462,18 @@ def delete_container(container):
     Deletes the referenced container from the backend.
     '''
     try:
-        ret = config.container_backend.delete_container(container)
-        return success_response(ret)
+        config.container_backend.delete_container(container)
+        return success_no_content()
     except ContainerNotFoundError:
-        return error_response(404, "Container not found")
+        return error_not_found("Container not found")
     except IllegalContainerStateError:
-        return error_response(412, "Container in illegal state for requested action")
+        return error_precondition_failed("Container in illegal state for requested action")
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('', methods=['GET'])
@@ -489,13 +483,13 @@ def get_containers():
     '''
     try:
         containers = config.container_backend.get_containers()
-        return success_response(containers)
+        return success_ok(containers)
     except ContainerBackendError:
-        return error_response(500, "Unexpected container backend error")
+        return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
-        return error_response(501, "Not implemented")
+        return error_not_implemented()
     except:
-        return error_response(500, "Unexpected error")
+        return error_unexpected_error()
 
 
 @blueprint.route('', methods=['POST'])
@@ -509,15 +503,15 @@ def create_container():
     try:
         json = request.get_json(force=True).copy()
         try:
-            container = config.container_backend.create_container(json)
-            return success_response(container)
+            container_pk = config.container_backend.create_container(json)
+            return success_created(container_pk, url_for('.get_container', container=container_pk))
         except IllegalContainerSpecificationError:
-            return error_response(400, "Illegal specification for container creation")
+            return error_unprocessable_entity("Invalid container specification")
         except ContainerBackendError:
-            return error_response(500, "Unexpected container backend error")
+            return error_unexpected_error("Unexpected backend error")
         except NotImplementedError:
-            return error_response(501, "Not implemented")
+            return error_not_implemented()
         except:
-            return error_response(500, "Unexpected error")
+            return error_unexpected_error()
     except:
-        return error_response(400, "Bad request")
+        return error_bad_request()
