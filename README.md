@@ -12,7 +12,7 @@ usage: ipynbsrv_hostapi [-h] [--container-backend CONTAINER_BACKEND]
 optional arguments:
   -h, --help            show this help message and exit
   --container-backend CONTAINER_BACKEND
-                        absolute name of the container backend module to load
+                        absolute name of the container backend class to load
   --container-backend-args CONTAINER_BACKEND_ARGS
                         arguments to pass to the container backend upon
                         initialization
