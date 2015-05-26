@@ -15,7 +15,7 @@ def main():
     parser.add_argument('--container-backend', help='absolute name of the container backend class to load',
                         action='store', type=str, default='ipynbsrv.backends.container_backends.Docker', dest='container_backend')
     parser.add_argument('--container-backend-args', help='arguments to pass to the container backend upon initialization',
-                        action='store', type=str, default='version=auto', dest='container_backend_args')
+                        action='store', type=str, default='{ "version": "auto" }', dest='container_backend_args')
     parser.add_argument('-d, --debug', help='run in debug mode',
                         action='store_true', default=False, dest='debug')
     parser.add_argument('-l, --listen', help='the address to listen on',
