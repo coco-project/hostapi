@@ -7,9 +7,9 @@ import sys
 
 
 def main():
-    '''
+    """
     ipynbsrv host API command-line interface entry point.
-    '''
+    """
     # define available arguments
     parser = argparse.ArgumentParser(description="ipynbsrv host API CLI tool")
     parser.add_argument('--container-backend', help='absolute name of the container backend class to load',
