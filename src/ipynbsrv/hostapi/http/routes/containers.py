@@ -1,4 +1,4 @@
-from flask import Blueprint, make_response, request, url_for
+from flask import Blueprint, request, url_for
 from ipynbsrv.contract.backends import *
 from ipynbsrv.contract.errors import *
 from ipynbsrv.hostapi import config
