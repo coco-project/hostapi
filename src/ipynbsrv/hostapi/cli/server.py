@@ -35,8 +35,9 @@ def main():
         if config.debug:
             raise ex
         else:
-            print "Initializing the container backend failed. \
-                   Turn on debug mode (-d. --debug) to get more information about the error."
+            print """Initializing the container backend failed.
+Turn on debug mode (-d. --debug) to get more information about the error."""
+            sys.exit(1)
 
     # bootstrap the application and add our routes
     app = Flask(__name__)
