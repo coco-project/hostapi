@@ -17,9 +17,6 @@ def get_health():
 
     The main application is querying this entry-point from time to time to determinate
     either the node is still up (and healthy) or if it has problems.
-
-    TODO: return general health information (e.g. OK, out of memory), container backend (is running),
-          diskspace etc.
     """
     try:
         return success_ok({
