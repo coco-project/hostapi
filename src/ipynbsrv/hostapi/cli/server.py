@@ -3,6 +3,7 @@ from flask import Flask
 from ipynbsrv.common.utils import ClassLoader
 from ipynbsrv.hostapi import config
 from ipynbsrv.hostapi.http.routes.containers import blueprint as containers_blueprint
+from ipynbsrv.hostapi.http.routes.health import blueprint as health_blueprint
 import sys
 
 
@@ -42,6 +43,7 @@ Turn on debug mode (-d. --debug) to get more information about the error."""
     # bootstrap the application and add our routes
     app = Flask(__name__)
     app.register_blueprint(containers_blueprint)
+    app.register_blueprint(health_blueprint)
 
     # run the application / HTTP REST API
     app.run(debug=config.debug, host=args.address, port=args.port)
