@@ -27,9 +27,16 @@ def main():
     # set configuration values
     config.debug = args.debug
 
-    module, klass = ClassLoader.split(args.container_backend)
-    backend = ClassLoader(module=module, klass=klass, args=args.container_backend_args)
-    config.container_backend = backend.get_instance()
+    try:
+        module, klass = ClassLoader.split(args.container_backend)
+        backend = ClassLoader(module=module, klass=klass, args=args.container_backend_args)
+        config.container_backend = backend.get_instance()
+    except Exception as ex:
+        if config.debug:
+            raise ex
+        else:
+            print "Initializing the container backend failed. \
+                   Turn on debug mode (-d. --debug) to get more information about the error."
 
     # bootstrap the application and add our routes
     app = Flask(__name__)
