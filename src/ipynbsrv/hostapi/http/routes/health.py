@@ -1,5 +1,6 @@
 from flask import Blueprint
-from ipynbsrv.hostapi.http.responses import error_not_implemented
+from ipynbsrv.hostapi.http.responses import success_ok
+import psutil
 
 
 """
@@ -9,7 +10,7 @@ blueprint = Blueprint('health', __name__, url_prefix='/health')
 
 
 @blueprint.route('', methods=['GET'])
-def get_health(container):
+def get_health():
     """
     Return the node's health (report).
 
@@ -19,4 +20,19 @@ def get_health(container):
     TODO: return general health information (e.g. OK, out of memory), container backend (is running),
           diskspace etc.
     """
-    return error_not_implemented()
+    return success_ok({
+        'backends': {
+            'container': {
+                'status': "OK"
+            }
+        },
+        'resources': {
+            'cpu': {
+                'count': psutil.cpu_count(),
+                'usage': psutil.cpu_percent()
+            },
+            'disk': psutil.disk_usage('/').__dict__,
+            'memory': psutil.virtual_memory().__dict__,
+            'swap': psutil.swap_memory().__dict__
+        }
+    })
