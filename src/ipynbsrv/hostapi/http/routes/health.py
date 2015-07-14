@@ -1,6 +1,6 @@
 from flask import Blueprint
 from ipynbsrv.hostapi import config
-from ipynbsrv.hostapi.http.responses import success_ok
+from ipynbsrv.hostapi.http.responses import error_unexpected_error, success_ok
 import psutil
 
 
@@ -21,19 +21,22 @@ def get_health():
     TODO: return general health information (e.g. OK, out of memory), container backend (is running),
           diskspace etc.
     """
-    return success_ok({
-        'backends': {
-            'container': {
-                'status': config.container_backend.get_status()
-            }
-        },
-        'resources': {
-            'cpu': {
-                'count': psutil.cpu_count(),
-                'usage': psutil.cpu_percent()
+    try:
+        return success_ok({
+            'backends': {
+                'container': {
+                    'status': config.container_backend.get_status()
+                }
             },
-            'disk': psutil.disk_usage('/').__dict__,
-            'memory': psutil.virtual_memory().__dict__,
-            'swap': psutil.swap_memory().__dict__
-        }
-    })
+            'resources': {
+                'cpu': {
+                    'count': psutil.cpu_count(),
+                    'usage': psutil.cpu_percent()
+                },
+                'disk': psutil.disk_usage('/').__dict__,
+                'memory': psutil.virtual_memory().__dict__,
+                'swap': psutil.swap_memory().__dict__
+            }
+        })
+    except Exception:
+        return error_unexpected_error()
