@@ -1,4 +1,5 @@
 from flask import Blueprint
+from ipynbsrv.hostapi import config
 from ipynbsrv.hostapi.http.responses import success_ok
 import psutil
 
@@ -23,7 +24,7 @@ def get_health():
     return success_ok({
         'backends': {
             'container': {
-                'status': "OK"
+                'status': config.container_backend.get_status()
             }
         },
         'resources': {
