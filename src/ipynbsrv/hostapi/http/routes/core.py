@@ -1,4 +1,5 @@
 from flask import Blueprint
+from ipynbsrv.contract.backends import ContainerBackend
 from ipynbsrv.hostapi import config
 from ipynbsrv.hostapi.http.responses import *
 import psutil
@@ -19,7 +20,11 @@ def get_health():
     and further actions should be performed to find the reason and/or fix it.
     """
     try:
-        return success_no_content()
+        status = get_status()
+        if status.get('backends').get('container').get('status') is ContainerBackend.BACKEND_STATUS_OK:
+            return success_no_content()
+        else:
+            return error_unexpected_error("Container backend not OK")
     except Exception:
         return error_unexpected_error()
 
