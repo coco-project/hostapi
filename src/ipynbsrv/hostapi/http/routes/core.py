@@ -1,22 +1,36 @@
 from flask import Blueprint
 from ipynbsrv.hostapi import config
-from ipynbsrv.hostapi.http.responses import error_unexpected_error, success_ok
+from ipynbsrv.hostapi.http.responses import *
 import psutil
 
 
 """
-Flask blueprint collecting the /health routes.
+Flask blueprint collecting the core (/) routes.
 """
-blueprint = Blueprint('health', __name__, url_prefix='/health')
+blueprint = Blueprint('core', __name__)
 
 
-@blueprint.route('', methods=['GET'])
+@blueprint.route('/health', methods=['GET'])
 def get_health():
     """
-    Return the node's health (report).
+    Endpoint to be queried to check the node's health.
+
+    Everything other than a 2xx response (could) indicate a problem
+    and further actions should be performed to find the reason and/or fix it.
+    """
+    try:
+        return success_no_content()
+    except Exception:
+        return error_unexpected_error()
+
+
+@blueprint.route('/status', methods=['GET'])
+def get_status():
+    """
+    Return the node's status report.
 
     The main application is querying this entry-point from time to time to determinate
-    either the node is still up (and healthy) or if it has problems.
+    the nodes status.
     """
     try:
         return success_ok({
