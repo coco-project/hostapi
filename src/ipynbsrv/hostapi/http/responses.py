@@ -9,11 +9,10 @@ def success_ok(body):
     return json_response(body, 200)
 
 
-def success_created(pk, location=None):
+def success_created(body, location=None):
     """
     Return a 201 - Created response object.
     """
-    body = {'pk': pk}
     headers = {}
     if location:
         headers['Location'] = location

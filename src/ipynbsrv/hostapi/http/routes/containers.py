@@ -505,8 +505,8 @@ def create_container():
     try:
         json = request.get_json(force=True).copy()
         try:
-            container_pk = config.container_backend.create_container(json)
-            return success_created(container_pk, url_for('.get_container', container=container_pk))
+            container = config.container_backend.create_container(json)
+            return success_created(container, url_for('.get_container', container=container))
         except IllegalContainerSpecificationError:
             return error_unprocessable_entity("Invalid container specification")
         except ContainerBackendError:
