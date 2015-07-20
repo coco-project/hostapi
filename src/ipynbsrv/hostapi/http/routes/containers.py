@@ -55,12 +55,7 @@ def exec_in_container(container):
 def get_image(image):
     """
     Get information about a single image.
-
-    Note: If the backend does not support images, a precondition required error is returned.
     """
-    if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_precondition_required("Image based backend required")
-
     try:
         image = config.container_backend.get_image(image)
         return success_ok(image)
@@ -78,12 +73,7 @@ def get_image(image):
 def delete_image(image):
     """
     Delete the referenced image from the backend.
-
-    Note: If the backend does not support images, a precondition required error is returned.
     """
-    if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_precondition_required("Image based backend required")
-
     try:
         config.container_backend.delete_image(image)
         return success_no_content()
@@ -101,12 +91,7 @@ def delete_image(image):
 def get_images():
     """
     Get a list of images the container backend can bootstrap containers from.
-
-    Note: If the backend does not support images, a precondition required error is returned.
     """
-    if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_precondition_required("Image based backend required")
-
     try:
         images = config.container_backend.get_images()
         return success_ok(images)
@@ -123,16 +108,11 @@ def create_image():
     """
     Create a container image as per the specification included in the POST body.
     """
-    if not isinstance(config.container_backend, ImageBasedContainerBackend):
-        return error_precondition_required("Image based backend required")
-
     try:
         json = request.get_json(force=True).copy()
         try:
-            image_pk = config.container_backend.create_image(json)
+            image_pk = config.container_backend.create_image(**json)
             return success_created(image_pk, url_for('.get_image', image=image_pk))
-        except IllegalContainerSpecificationError:
-            return error_unprocessable_entity("Invalid image specification")
         except ContainerBackendError:
             return error_unexpected_error("Unexpected backend error")
         except NotImplementedError:
@@ -351,12 +331,10 @@ def create_container_snapshot(container):
     try:
         specs = request.get_json(force=True).copy()
         try:
-            snapshot_pk = config.container_backend.create_container_snapshot(container, specs)
+            snapshot_pk = config.container_backend.create_container_snapshot(container, **specs)
             return success_created(snapshot_pk, url_for('.get_container_snapshot', container=container, snapshot=snapshot_pk))
         except ContainerNotFoundError:
             return error_not_found("Container not found")
-        except IllegalContainerSpecificationError:
-            return error_unprocessable_entity("Invalid snapshot specification")
         except IllegalContainerStateError:
             return error_precondition_failed("Container in illegal state for requested action")
         except ContainerBackendError:
@@ -506,10 +484,8 @@ def create_container():
     try:
         json = request.get_json(force=True).copy()
         try:
-            container = config.container_backend.create_container(json)
+            container = config.container_backend.create_container(**json)
             return success_created(container, url_for('.get_container', container=container))
-        except IllegalContainerSpecificationError:
-            return error_unprocessable_entity("Invalid container specification")
         except ContainerBackendError:
             return error_unexpected_error("Unexpected backend error")
         except NotImplementedError:
