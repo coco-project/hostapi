@@ -347,7 +347,7 @@ def create_container_snapshot(container):
         specs = request.get_json(force=True).copy()
         try:
             snapshot = config.container_backend.create_container_snapshot(container, **specs)
-            return success_created(snapshot, url_for('.get_container_snapshot', container=container, snapshot=snapshot_pk))
+            return success_created(snapshot, url_for('.get_container_snapshot', snapshot=snapshot))
         except ContainerNotFoundError:
             return error_not_found("Container not found")
         except IllegalContainerStateError:
