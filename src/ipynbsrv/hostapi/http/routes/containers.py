@@ -11,12 +11,153 @@ Flask blueprint collecting the /containers routes.
 blueprint = Blueprint('containers', __name__, url_prefix='/containers')
 
 
+@blueprint.route('/images/<image>', methods=['DELETE'])
+def delete_container_image(image):
+    """
+    Delete the referenced image from the backend.
+    """
+    try:
+        config.container_backend.delete_container_image(image)
+        return success_no_content()
+    except ContainerImageNotFoundError:
+        return error_not_found("Container image not found")
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
+@blueprint.route('/images/<image>', methods=['GET'])
+def get_container_image(image):
+    """
+    Get information about a single image.
+    """
+    try:
+        image = config.container_backend.get_container_image(image)
+        return success_ok(image)
+    except ContainerImageNotFoundError:
+            return error_not_found("Container image not found")
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
+@blueprint.route('/images', methods=['GET'])
+def get_container_images():
+    """
+    Get a list of images the container backend can bootstrap containers from.
+    """
+    try:
+        images = config.container_backend.get_container_images()
+        return success_ok(images)
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
+@blueprint.route('/images', methods=['POST'])
+def create_container_image():
+    """
+    Create a container image as per the specification included in the POST body.
+    """
+    try:
+        json = request.get_json(force=True).copy()
+        try:
+            image = config.container_backend.create_container_image(**json)
+            return success_created(image, url_for('.get_container_image', image=image))
+        except ContainerBackendError:
+            return error_unexpected_error("Unexpected backend error")
+        except NotImplementedError:
+            return error_not_implemented()
+        except:
+            return error_unexpected_error()
+    except:
+        return error_bad_request()
+
+
+@blueprint.route('/snapshots/<snapshot>', methods=['DELETE'])
+def delete_container_snapshots(snapshot):
+    """
+    Delete the referenced container snapshot from the container backend.
+    """
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
+        return error_precondition_required("Snapshotable backend required")
+
+    try:
+        config.container_backend.delete_container_snapshot(snapshot)
+        return success_no_content()
+    except ContainerNotFoundError:
+        return error_not_found("Container not found")
+    except ContainerSnapshotNotFoundError:
+        return error_not_found("Container snapshot not found")
+    except IllegalContainerStateError:
+        return error_precondition_failed("Container in illegal state for requested action")
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
+@blueprint.route('/snapshots/<snapshot>', methods=['GET'])
+def get_container_snapshot(snapshot):
+    """
+    Get information about a single snapshot.
+    """
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
+        return error_precondition_required("Snapshotable backend required")
+
+    try:
+        snapshot = config.container_backend.get_container_snapshot(snapshot)
+        return success_ok(snapshot)
+    except ContainerNotFoundError:
+        return error_not_found("Container not found")
+    except ContainerSnapshotNotFoundError:
+        return error_not_found("Container snapshot not found")
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
+@blueprint.route('/snapshots', methods=['GET'])
+def get_container_snapshots():
+    """
+    Get a list of all containers' snapshots.
+    """
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
+        return error_precondition_required("Snapshotable backend required")
+
+    try:
+        snapshots = config.container_backend.get_container_snapshots()
+        return success_ok(snapshots)
+    except ContainerNotFoundError:
+        return error_not_found("Container not found")
+    except ContainerSnapshotNotFoundError:
+        return error_not_found("Container snapshot not found")
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
 @blueprint.route('/<container>/clone', methods=['POST'])
 def clone_container(container):
     """
     Create a clone of an already existing container as per the specification from the request body.
-
-    TODO: hmm.....
     """
     if not isinstance(config.container_backend, CloneableContainerBackend):
         return error_precondition_required("Cloneable backend required")
@@ -27,7 +168,10 @@ def clone_container(container):
 @blueprint.route('/<container>/exec', methods=['POST'])
 def exec_in_container(container):
     """
-    Execute the command from the request body inside the container and returns its output.
+    Execute the command from the request body inside the container and return its output.
+
+    :param container: The container in which the command should be executed.
+    :request_param command: The command to execute.
     """
     try:
         command = request.get_json(force=True).get('command')
@@ -47,78 +191,6 @@ def exec_in_container(container):
                 return error_unexpected_error()
         else:
             return error_unprocessable_entity("Command missing")
-    except:
-        return error_bad_request()
-
-
-@blueprint.route('/images/<image>', methods=['GET'])
-def get_image(image):
-    """
-    Get information about a single image.
-    """
-    try:
-        image = config.container_backend.get_image(image)
-        return success_ok(image)
-    except ContainerImageNotFoundError:
-            return error_not_found("Container image not found")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
-    except:
-        return error_unexpected_error()
-
-
-@blueprint.route('/images/<image>', methods=['DELETE'])
-def delete_image(image):
-    """
-    Delete the referenced image from the backend.
-    """
-    try:
-        config.container_backend.delete_image(image)
-        return success_no_content()
-    except ContainerImageNotFoundError:
-        return error_not_found("Container image not found")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
-    except:
-        return error_unexpected_error()
-
-
-@blueprint.route('/images', methods=['GET'])
-def get_images():
-    """
-    Get a list of images the container backend can bootstrap containers from.
-    """
-    try:
-        images = config.container_backend.get_images()
-        return success_ok(images)
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
-    except:
-        return error_unexpected_error()
-
-
-@blueprint.route('/images', methods=['POST'])
-def create_image():
-    """
-    Create a container image as per the specification included in the POST body.
-    """
-    try:
-        json = request.get_json(force=True).copy()
-        try:
-            image_pk = config.container_backend.create_image(**json)
-            return success_created(image_pk, url_for('.get_image', image=image_pk))
-        except ContainerBackendError:
-            return error_unexpected_error("Unexpected backend error")
-        except NotImplementedError:
-            return error_not_implemented()
-        except:
-            return error_unexpected_error()
     except:
         return error_bad_request()
 
@@ -233,77 +305,6 @@ def restore_container_snapshots(container, snapshot):
         return error_not_found("Container snapshot not found")
     except IllegalContainerStateError:
         return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
-    except:
-        return error_unexpected_error()
-
-
-@blueprint.route('/snapshots/<snapshot>', methods=['DELETE'])
-def delete_container_snapshots(snapshot):
-    """
-    Delete the referenced container snapshot from the container backend.
-    """
-    if not isinstance(config.container_backend, SnapshotableContainerBackend):
-        return error_precondition_required("Snapshotable backend required")
-
-    try:
-        config.container_backend.delete_container_snapshot(snapshot)
-        return success_no_content()
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except ContainerSnapshotNotFoundError:
-        return error_not_found("Container snapshot not found")
-    except IllegalContainerStateError:
-        return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
-    except:
-        return error_unexpected_error()
-
-
-@blueprint.route('/snapshots/<snapshot>', methods=['GET'])
-def get_container_snapshot(snapshot):
-    """
-    Get information about a single snapshot.
-    """
-    if not isinstance(config.container_backend, SnapshotableContainerBackend):
-        return error_precondition_required("Snapshotable backend required")
-
-    try:
-        snapshot = config.container_backend.get_container_snapshot(snapshot)
-        return success_ok(snapshot)
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except ContainerSnapshotNotFoundError:
-        return error_not_found("Container snapshot not found")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
-    except:
-        return error_unexpected_error()
-
-
-@blueprint.route('/snapshots', methods=['GET'])
-def get_container_snapshots():
-    """
-    Get a list of all containers' snapshots.
-    """
-    if not isinstance(config.container_backend, SnapshotableContainerBackend):
-        return error_precondition_required("Snapshotable backend required")
-
-    try:
-        snapshots = config.container_backend.get_container_snapshots()
-        return success_ok(snapshots)
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except ContainerSnapshotNotFoundError:
-        return error_not_found("Container snapshot not found")
     except ContainerBackendError:
         return error_unexpected_error("Unexpected backend error")
     except NotImplementedError:
