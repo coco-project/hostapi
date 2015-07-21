@@ -241,18 +241,16 @@ def restore_container_snapshots(container, snapshot):
         return error_unexpected_error()
 
 
-@blueprint.route('/<container>/snapshots/<snapshot>', methods=['DELETE'])
-def delete_container_snapshots(container, snapshot):
+@blueprint.route('/snapshots/<snapshot>', methods=['DELETE'])
+def delete_container_snapshots(snapshot):
     """
     Delete the referenced container snapshot from the container backend.
-
-    Note: If the backend does not snapshots, a precondition required error is returned.
     """
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_precondition_required("Snapshotable backend required")
 
     try:
-        config.container_backend.delete_container_snapshot(container, snapshot)
+        config.container_backend.delete_container_snapshot(snapshot)
         return success_no_content()
     except ContainerNotFoundError:
         return error_not_found("Container not found")
@@ -268,18 +266,16 @@ def delete_container_snapshots(container, snapshot):
         return error_unexpected_error()
 
 
-@blueprint.route('/<container>/snapshots/<snapshot>', methods=['GET'])
-def get_container_snapshot(container, snapshot):
+@blueprint.route('/snapshots/<snapshot>', methods=['GET'])
+def get_container_snapshot(snapshot):
     """
-    Get information about a single snapshot of the given container.
-
-    Note: If the backend does not snapshots, a precondition required error is returned.
+    Get information about a single snapshot.
     """
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_precondition_required("Snapshotable backend required")
 
     try:
-        snapshot = config.container_backend.get_container_snapshot(container, snapshot)
+        snapshot = config.container_backend.get_container_snapshot(snapshot)
         return success_ok(snapshot)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
@@ -293,18 +289,39 @@ def get_container_snapshot(container, snapshot):
         return error_unexpected_error()
 
 
-@blueprint.route('/<container>/snapshots', methods=['GET'])
-def get_container_snapshots(container):
+@blueprint.route('/snapshots', methods=['GET'])
+def get_container_snapshots():
     """
-    Get a list of all snapshots for the given container.
-
-    Note: If the backend does not snapshots, a precondition required error is returned.
+    Get a list of all containers' snapshots.
     """
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_precondition_required("Snapshotable backend required")
 
     try:
-        snapshots = config.container_backend.get_container_snapshots(container)
+        snapshots = config.container_backend.get_container_snapshots()
+        return success_ok(snapshots)
+    except ContainerNotFoundError:
+        return error_not_found("Container not found")
+    except ContainerSnapshotNotFoundError:
+        return error_not_found("Container snapshot not found")
+    except ContainerBackendError:
+        return error_unexpected_error("Unexpected backend error")
+    except NotImplementedError:
+        return error_not_implemented()
+    except:
+        return error_unexpected_error()
+
+
+@blueprint.route('/<container>/snapshots', methods=['GET'])
+def get_containers_snapshots(container):
+    """
+    Get a list of all snapshots for the given container.
+    """
+    if not isinstance(config.container_backend, SnapshotableContainerBackend):
+        return error_precondition_required("Snapshotable backend required")
+
+    try:
+        snapshots = config.container_backend.get_containers_snapshots(container)
         return success_ok(snapshots)
     except ContainerNotFoundError:
         return error_not_found("Container not found")
@@ -322,8 +339,6 @@ def get_container_snapshots(container):
 def create_container_snapshot(container):
     """
     Create a new container snapshot for the container as per the specification in the request body.
-
-    Note: If the backend does not snapshots, a precondition required error is returned.
     """
     if not isinstance(config.container_backend, SnapshotableContainerBackend):
         return error_precondition_required("Snapshotable backend required")
@@ -331,8 +346,8 @@ def create_container_snapshot(container):
     try:
         specs = request.get_json(force=True).copy()
         try:
-            snapshot_pk = config.container_backend.create_container_snapshot(container, **specs)
-            return success_created(snapshot_pk, url_for('.get_container_snapshot', container=container, snapshot=snapshot_pk))
+            snapshot = config.container_backend.create_container_snapshot(container, **specs)
+            return success_created(snapshot, url_for('.get_container_snapshot', container=container, snapshot=snapshot_pk))
         except ContainerNotFoundError:
             return error_not_found("Container not found")
         except IllegalContainerStateError:
