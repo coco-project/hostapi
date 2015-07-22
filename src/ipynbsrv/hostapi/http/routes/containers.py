@@ -154,17 +154,6 @@ def get_container_snapshots():
         return error_unexpected_error()
 
 
-@blueprint.route('/<container>/clone', methods=['POST'])
-def clone_container(container):
-    """
-    Create a clone of an already existing container as per the specification from the request body.
-    """
-    if not isinstance(config.container_backend, CloneableContainerBackend):
-        return error_precondition_required("Cloneable backend required")
-
-    return error_not_implemented()
-
-
 @blueprint.route('/<container>/exec', methods=['POST'])
 def exec_in_container(container):
     """
