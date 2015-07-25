@@ -11,7 +11,7 @@ setup(
         'ipynbsrv-backends',
         'ipynbsrv-contract',
         'Flask==0.10.1',
-        'psutil==3.0.1'
+        'psutil==3.1.1'
     ],
     entry_points={'console_scripts': ['ipynbsrv_hostapi = ipynbsrv.hostapi.cli.server:main']}
 )
