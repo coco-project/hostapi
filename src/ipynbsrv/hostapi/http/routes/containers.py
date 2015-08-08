@@ -18,7 +18,10 @@ def delete_container_image(image):
     Delete the referenced image from the backend.
     """
     try:
-        config.container_backend.delete_container_image(standard_b64decode(image))
+        config.container_backend.delete_container_image(
+            standard_b64decode(image),
+            True  # FIXME: Flask doesn't support DELETE body
+        )
         return success_no_content()
     except ContainerImageNotFoundError:
         return error_not_found("Container image not found")
@@ -93,7 +96,10 @@ def delete_container_snapshots(snapshot):
         return error_precondition_required("Snapshotable backend required")
 
     try:
-        config.container_backend.delete_container_snapshot(standard_b64decode(snapshot))
+        config.container_backend.delete_container_snapshot(
+            standard_b64decode(snapshot),
+            True  # FIXME: Flask doesn't support DELETE body
+        )
         return success_no_content()
     except ContainerNotFoundError:
         return error_not_found("Container not found")
@@ -240,18 +246,25 @@ def restart_container(container):
     Restart the container.
     """
     try:
-        config.container_backend.restart_container(standard_b64decode(container), force=True)
-        return success_no_content()
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except IllegalContainerStateError:
-        return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
+        json = request.get_json(force=True).copy()
+        try:
+            config.container_backend.restart_container(
+                standard_b64decode(container),
+                json.get('force', False)
+            )
+            return success_no_content()
+        except ContainerNotFoundError:
+            return error_not_found("Container not found")
+        except IllegalContainerStateError:
+            return error_precondition_failed("Container in illegal state for requested action")
+        except ContainerBackendError:
+            return error_unexpected_error("Unexpected backend error")
+        except NotImplementedError:
+            return error_not_implemented()
+        except:
+            return error_unexpected_error()
     except:
-        return error_unexpected_error()
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/resume', methods=['POST'])
@@ -265,18 +278,25 @@ def resume_container(container):
         return error_precondition_required("Suspendable backend required")
 
     try:
-        config.container_backend.resume_container(standard_b64decode(container))
-        return success_no_content()
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except IllegalContainerStateError:
-        return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
+        json = request.get_json(force=True).copy()
+        try:
+            config.container_backend.resume_container(
+                standard_b64decode(container),
+                json.get('force', False)
+            )
+            return success_no_content()
+        except ContainerNotFoundError:
+            return error_not_found("Container not found")
+        except IllegalContainerStateError:
+            return error_precondition_failed("Container in illegal state for requested action")
+        except ContainerBackendError:
+            return error_unexpected_error("Unexpected backend error")
+        except NotImplementedError:
+            return error_not_implemented()
+        except:
+            return error_unexpected_error()
     except:
-        return error_unexpected_error()
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/snapshots/<snapshot>/restore', methods=['POST'])
@@ -290,23 +310,28 @@ def restore_container_snapshots(container, snapshot):
         return error_precondition_required("Snapshotable backend required")
 
     try:
-        restored_snapshot = config.container_backend.restore_container_snapshot(
-            standard_b64decode(container),
-            standard_b64decode(snapshot)
-        )
-        return success_ok(restored_snapshot)
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except ContainerSnapshotNotFoundError:
-        return error_not_found("Container snapshot not found")
-    except IllegalContainerStateError:
-        return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
+        json = request.get_json(force=True).copy()
+        try:
+            restored_snapshot = config.container_backend.restore_container_snapshot(
+                standard_b64decode(container),
+                standard_b64decode(snapshot),
+                json.get('force', False)
+            )
+            return success_ok(restored_snapshot)
+        except ContainerNotFoundError:
+            return error_not_found("Container not found")
+        except ContainerSnapshotNotFoundError:
+            return error_not_found("Container snapshot not found")
+        except IllegalContainerStateError:
+            return error_precondition_failed("Container in illegal state for requested action")
+        except ContainerBackendError:
+            return error_unexpected_error("Unexpected backend error")
+        except NotImplementedError:
+            return error_not_implemented()
+        except:
+            return error_unexpected_error()
     except:
-        return error_unexpected_error()
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/snapshots', methods=['GET'])
@@ -341,11 +366,11 @@ def create_container_snapshot(container):
         return error_precondition_required("Snapshotable backend required")
 
     try:
-        specs = request.get_json(force=True).copy()
+        json = request.get_json(force=True).copy()
         try:
             snapshot = config.container_backend.create_container_snapshot(
                 standard_b64decode(container),
-                **specs
+                **json
             )
             return success_created(snapshot, url_for('.get_container_snapshot', snapshot=snapshot))
         except ContainerNotFoundError:
@@ -395,18 +420,25 @@ def stop_container(container):
     Note: Backends may have preconditions before this operation can be run.
     """
     try:
-        config.container_backend.stop_container(standard_b64decode(container), force=True)
-        return success_no_content()
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except IllegalContainerStateError:
-        return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
+        json = request.get_json(force=True).copy()
+        try:
+            config.container_backend.stop_container(
+                standard_b64decode(container),
+                json.get('force', False)
+            )
+            return success_no_content()
+        except ContainerNotFoundError:
+            return error_not_found("Container not found")
+        except IllegalContainerStateError:
+            return error_precondition_failed("Container in illegal state for requested action")
+        except ContainerBackendError:
+            return error_unexpected_error("Unexpected backend error")
+        except NotImplementedError:
+            return error_not_implemented()
+        except:
+            return error_unexpected_error()
     except:
-        return error_unexpected_error()
+        return error_bad_request()
 
 
 @blueprint.route('/<container>/suspend', methods=['POST'])
@@ -420,18 +452,25 @@ def suspend_container(container):
         return error_precondition_required("Suspendable backend required")
 
     try:
-        config.container_backend.suspend_container(standard_b64decode(container))
-        return success_no_content()
-    except ContainerNotFoundError:
-        return error_not_found("Container not found")
-    except IllegalContainerStateError:
-        return error_precondition_failed("Container in illegal state for requested action")
-    except ContainerBackendError:
-        return error_unexpected_error("Unexpected backend error")
-    except NotImplementedError:
-        return error_not_implemented()
+        json = request.get_json(force=True).copy()
+        try:
+            config.container_backend.suspend_container(
+                standard_b64decode(container),
+                json.get('force', False)
+            )
+            return success_no_content()
+        except ContainerNotFoundError:
+            return error_not_found("Container not found")
+        except IllegalContainerStateError:
+            return error_precondition_failed("Container in illegal state for requested action")
+        except ContainerBackendError:
+            return error_unexpected_error("Unexpected backend error")
+        except NotImplementedError:
+            return error_not_implemented()
+        except:
+            return error_unexpected_error()
     except:
-        return error_unexpected_error()
+        return error_bad_request()
 
 
 @blueprint.route('/<container>', methods=['GET'])
@@ -458,7 +497,10 @@ def delete_container(container):
     Delete the referenced container from the backend.
     """
     try:
-        config.container_backend.delete_container(standard_b64decode(container))
+        config.container_backend.delete_container(
+            standard_b64decode(container),
+            True  # FIXME: Flask doesn't support DELETE body
+        )
         return success_no_content()
     except ContainerNotFoundError:
         return error_not_found("Container not found")
