@@ -50,8 +50,7 @@ Turn on debug mode (-d. --debug) to get more information about the error."""
         debug=config.debug,
         host=args.address,
         port=args.port,
-        processes=5,
-        threaded=True
+        processes=4
     )
 
 
