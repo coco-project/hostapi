@@ -46,7 +46,13 @@ Turn on debug mode (-d. --debug) to get more information about the error."""
     app.register_blueprint(core_blueprint)
 
     # run the application / HTTP REST API
-    app.run(debug=config.debug, host=args.address, port=args.port)
+    app.run(
+        debug=config.debug,
+        host=args.address,
+        port=args.port,
+        processes=5,
+        threaded=True
+    )
 
 
 if __name__ == "__main__":
