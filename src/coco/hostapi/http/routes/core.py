@@ -1,7 +1,7 @@
+from coco.contract.backends import ContainerBackend
+from coco.hostapi import config
+from coco.hostapi.http.responses import *
 from flask import Blueprint
-from ipynbsrv.contract.backends import ContainerBackend
-from ipynbsrv.hostapi import config
-from ipynbsrv.hostapi.http.responses import *
 import psutil
 
 

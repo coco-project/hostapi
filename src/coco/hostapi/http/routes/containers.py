@@ -1,9 +1,9 @@
 from base64 import standard_b64decode
+from coco.contract.backends import *
+from coco.contract.errors import *
+from coco.hostapi import config
+from coco.hostapi.http.responses import *
 from flask import Blueprint, request, url_for
-from ipynbsrv.contract.backends import *
-from ipynbsrv.contract.errors import *
-from ipynbsrv.hostapi import config
-from ipynbsrv.hostapi.http.responses import *
 
 
 """

@@ -1,16 +1,16 @@
-# ipynbsrv-hostapi
+# coco-hostapi
 
-> Package containing the executable & library for the host API component (a `ipynbsrv.backends.container_backends.HttpRemote` endpoint).
+> Package containing the executable & library for the host API component (a `coco.backends.container_backends.HttpRemote` endpoint).
 
 ## Synopsis
 
 ```bash
-usage: ipynbsrv_hostapi [-h] [-d]
+usage: coco_hostapi [-h] [-d]
                         [-l ADDRESS] [-p PORT]
                         [--container-backend CONTAINER_BACKEND]
                         [--container-backend-args CONTAINER_BACKEND_ARGS]
 
-ipynbsrv host API CLI tool
+coco host API CLI tool
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -22,7 +22,7 @@ optional arguments:
 
   --container-backend CONTAINER_BACKEND
                         absolute name of the container backend class to load
-                        (default: ipynbsrv.backends.container_backends.Docker)
+                        (default: coco.backends.container_backends.Docker)
   --container-backend-args CONTAINER_BACKEND_ARGS
                         arguments to pass to the container backend upon
                         initialization (default: { "version": "auto" })
