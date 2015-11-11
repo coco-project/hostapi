@@ -49,8 +49,8 @@ Turn on debug mode (-d. --debug) to get more information about the error."""
     app.run(
         debug=config.debug,
         host=args.address,
-        port=args.port,
-        processes=4
+        port=args.port
+        # processes=4
     )
 
 
